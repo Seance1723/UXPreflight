@@ -1,16 +1,17 @@
 import { validateRulePack } from "@uxpreflight/core";
 import { universalUXRules } from "./universal-ux.rules.js";
+import { accessibilityRules } from "./accessibility.rules.js";
 
-export { universalUXRules };
+export { universalUXRules, accessibilityRules };
 
 export const rulePacksInfo = {
   name: "@uxpreflight/rule-packs",
   version: "0.1.0",
-  status: "Universal UX rule pack ready"
+  status: "Universal UX and Accessibility rule packs ready"
 };
 
 export function getDefaultRulePacks() {
-  return [universalUXRules];
+  return [universalUXRules, accessibilityRules];
 }
 
 export function validateDefaultRulePacks() {

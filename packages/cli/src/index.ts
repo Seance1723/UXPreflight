@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { getCoreInfo, getSchemaInfo } from "@uxpreflight/core";
-import { rulePacksInfo, validateDefaultRulePacks } from "@uxpreflight/rule-packs";
+import {
+  generateDesignConstitution,
+  getCoreInfo,
+  getSchemaInfo,
+  summarizeDesignConstitution,
+  validateDesignConstitution,
+  type UXPreflightProjectConfig
+} from "@uxpreflight/core";
+import {
+  getDefaultRulePacks,
+  rulePacksInfo,
+  validateDefaultRulePacks
+} from "@uxpreflight/rule-packs";
 
 const program = new Command();
 
@@ -18,6 +29,24 @@ program
     const core = getCoreInfo();
     const schema = getSchemaInfo();
     const rulePackResults = validateDefaultRulePacks();
+
+    const sampleConfig: UXPreflightProjectConfig = {
+      projectName: "Sample UXPreflight Project",
+      productType: "saas_admin",
+      platform: "responsive",
+      frontendStack: "react",
+      designTone: "modern enterprise SaaS",
+      strictness: "strict",
+      agents: ["codex", "cursor"]
+    };
+
+    const sampleConstitution = generateDesignConstitution({
+      config: sampleConfig,
+      rulePacks: getDefaultRulePacks()
+    });
+
+    const constitutionValidation = validateDesignConstitution(sampleConstitution);
+    const constitutionSummary = summarizeDesignConstitution(sampleConstitution);
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -55,17 +84,34 @@ program
       }
     });
 
+    console.log("");
+    console.log("Design Constitution Generator:");
+    console.log(`Project: ${constitutionSummary.projectName}`);
+    console.log(`Product Type: ${constitutionSummary.productType}`);
+    console.log(`Frontend Stack: ${constitutionSummary.frontendStack}`);
+    console.log(`Strictness: ${constitutionSummary.strictness}`);
+    console.log(`Version: ${constitutionSummary.version}`);
+    console.log(`Required States: ${constitutionSummary.requiredStateCount}`);
+    console.log(`Total Rule References: ${constitutionSummary.totalRules}`);
+    console.log(`Valid: ${constitutionValidation.success ? "Yes" : "No"}`);
+
+    console.log("");
+    console.log("Rule References by Group:");
+    Object.entries(constitutionSummary.ruleCounts).forEach(([group, count]) => {
+      console.log(`- ${group}: ${count}`);
+    });
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
 
     console.log("");
 
-    if (hasInvalidPack) {
-      console.log("Module 8 setup has rule pack validation errors.");
+    if (hasInvalidPack || !constitutionValidation.success) {
+      console.log("Module 9 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 8 setup looks good.");
+    console.log("Module 9 setup looks good.");
   });
 
 program.parse();

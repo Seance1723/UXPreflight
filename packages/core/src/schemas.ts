@@ -105,7 +105,9 @@ export const DesignConstitutionSchema = z.object({
     states: z.array(z.string()),
     product: z.array(z.string()),
     screen: z.array(z.string()),
+    businessRisk: z.array(z.string()),
     agentBehavior: z.array(z.string()),
+    trends: z.array(z.string()),
     antiPatterns: z.array(z.string())
   }),
   createdAt: z.string(),

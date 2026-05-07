@@ -99,7 +99,9 @@ export interface UXPreflightDesignConstitution {
     states: string[];
     product: string[];
     screen: string[];
+    businessRisk: string[];
     agentBehavior: string[];
+    trends: string[];
     antiPatterns: string[];
   };
   createdAt: string;
@@ -114,4 +116,11 @@ export interface UXPreflightProjectConfig {
   designTone: string;
   strictness: UXPreflightStrictness;
   agents: string[];
+}
+
+export interface GenerateDesignConstitutionInput {
+  config: UXPreflightProjectConfig;
+  rulePacks: UXPreflightRulePack[];
+  tokens?: UXPreflightTokens;
+  version?: string;
 }

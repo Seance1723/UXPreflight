@@ -1,17 +1,18 @@
 import { validateRulePack } from "@uxpreflight/core";
 import { universalUXRules } from "./universal-ux.rules.js";
 import { accessibilityRules } from "./accessibility.rules.js";
+import { stateCoverageRules } from "./state-coverage.rules.js";
 
-export { universalUXRules, accessibilityRules };
+export { universalUXRules, accessibilityRules, stateCoverageRules };
 
 export const rulePacksInfo = {
   name: "@uxpreflight/rule-packs",
   version: "0.1.0",
-  status: "Universal UX and Accessibility rule packs ready"
+  status: "Universal UX, Accessibility, and State Coverage rule packs ready"
 };
 
 export function getDefaultRulePacks() {
-  return [universalUXRules, accessibilityRules];
+  return [universalUXRules, accessibilityRules, stateCoverageRules];
 }
 
 export function validateDefaultRulePacks() {

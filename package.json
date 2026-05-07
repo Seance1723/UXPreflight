@@ -1,0 +1,39 @@
+{
+  "name": "uxpreflight",
+  "version": "0.1.0",
+  "description": "Open-source design governance engine for AI-generated frontend applications.",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @uxpreflight/cli",
+    "build": "npm run build --workspaces",
+    "typecheck": "tsc -b",
+    "clean": "node scripts/clean.js",
+    "doctor": "npm run doctor -w @uxpreflight/cli"
+  },
+  "keywords": [
+    "ui",
+    "ux",
+    "ai-agent",
+    "design-system",
+    "frontend",
+    "accessibility",
+    "codex",
+    "cursor",
+    "design-governance"
+  ],
+  "author": "",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "zod": "^4.0.0"
+  }
+}

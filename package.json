@@ -9,12 +9,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @uxpreflight/cli",
-    "build": "npm run build --workspaces",
-    "typecheck": "tsc -b",
-    "clean": "node scripts/clean.js",
-    "doctor": "npm run doctor -w @uxpreflight/cli"
-  },
+    "build:core": "npm run build -w @uxpreflight/core",
+    "build:cli": "npm run build -w @uxpreflight/cli",
+    "build": "npm run build:core && npm run build -w @uxpreflight/rule-packs && npm run build -w @uxpreflight/adapters && npm run build -w @uxpreflight/checker && npm run build -w @uxpreflight/mcp-server && npm run build:cli",
+    "dev": "npm run build:core && npm run dev -w @uxpreflight/cli",
+    "doctor": "npm run build:core && npm run doctor -w @uxpreflight/cli",
+    "typecheck": "tsc -b packages/core packages/cli packages/rule-packs packages/adapters packages/checker packages/mcp-server"
+    },
   "keywords": [
     "ui",
     "ux",

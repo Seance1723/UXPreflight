@@ -4,20 +4,22 @@ import { accessibilityRules } from "./accessibility.rules.js";
 import { stateCoverageRules } from "./state-coverage.rules.js";
 import { componentRules } from "./component.rules.js";
 import { productTypeRules } from "./product-type.rules.js";
+import { screenTypeRules } from "./screen-type.rules.js";
 
 export {
   universalUXRules,
   accessibilityRules,
   stateCoverageRules,
   componentRules,
-  productTypeRules
+  productTypeRules,
+  screenTypeRules
 };
 
 export const rulePacksInfo = {
   name: "@uxpreflight/rule-packs",
   version: "0.1.0",
   status:
-    "Universal UX, Accessibility, State Coverage, Component, and Product-Type rule packs ready"
+    "Universal UX, Accessibility, State Coverage, Component, Product-Type, and Screen-Type rule packs ready"
 };
 
 export function getDefaultRulePacks() {
@@ -26,7 +28,8 @@ export function getDefaultRulePacks() {
     accessibilityRules,
     stateCoverageRules,
     componentRules,
-    productTypeRules
+    productTypeRules,
+    screenTypeRules
   ];
 }
 

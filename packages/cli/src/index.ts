@@ -60,12 +60,12 @@ program
     console.log("");
 
     if (hasInvalidPack) {
-      console.log("Module 7 setup has rule pack validation errors.");
+      console.log("Module 8 setup has rule pack validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 7 setup looks good.");
+    console.log("Module 8 setup looks good.");
   });
 
 program.parse();

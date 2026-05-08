@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
@@ -17,10 +17,13 @@ import {
   summarizeDesignConstitution,
   summarizeTokenExports,
   validateDesignConstitution,
+  type UXPreflightDesignConstitution,
   type UXPreflightFrontendStack,
   type UXPreflightPlatform,
   type UXPreflightProjectConfig,
-  type UXPreflightStrictness
+  type UXPreflightPromptDetailLevel,
+  type UXPreflightStrictness,
+  type UXPreflightTargetAgent
 } from "@uxpreflight/core";
 
 import {
@@ -130,6 +133,43 @@ function parseAgents(value: string) {
     .filter(Boolean);
 
   return agents.length > 0 ? agents : ["codex", "cursor"];
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T> {
+  const content = await readFile(filePath, "utf8");
+  return JSON.parse(content) as T;
+}
+
+function normalizeTargetAgent(value?: string): UXPreflightTargetAgent {
+  const normalized = (value ?? "generic").trim().toLowerCase();
+
+  const allowed: UXPreflightTargetAgent[] = [
+    "codex",
+    "cursor",
+    "claude",
+    "gemini",
+    "windsurf",
+    "chatgpt",
+    "generic"
+  ];
+
+  if (allowed.includes(normalized as UXPreflightTargetAgent)) {
+    return normalized as UXPreflightTargetAgent;
+  }
+
+  return "generic";
+}
+
+function normalizePromptDetailLevel(value?: string): UXPreflightPromptDetailLevel {
+  const normalized = (value ?? "compact").trim().toLowerCase();
+
+  const allowed: UXPreflightPromptDetailLevel[] = ["compact", "detailed"];
+
+  if (allowed.includes(normalized as UXPreflightPromptDetailLevel)) {
+    return normalized as UXPreflightPromptDetailLevel;
+  }
+
+  return "compact";
 }
 
 async function askQuestion(
@@ -354,6 +394,121 @@ program
     console.log("- Use .uxpreflight/tokens.css or .uxpreflight/_tokens.scss in your frontend.");
   });
 
+program
+  .command("generate")
+  .description("Generate an AI-agent-ready prompt from the project design constitution.")
+  .requiredOption("--screen <name>", "Screen name, for example Billing Settings.")
+  .option("--screen-type <type>", "Screen type, for example billing_page or dashboard.")
+  .option("--requirement <text>", "User requirement for the screen or task.")
+  .option("--target-agent <agent>", "codex, cursor, claude, gemini, windsurf, chatgpt, generic.", "generic")
+  .option("--output-format <format>", "Expected output format.", "Complete production-ready frontend solution")
+  .option("--detail-level <level>", "compact or detailed.", "compact")
+  .option("--out <file>", "Output prompt file.", "uxpreflight-prompt.md")
+  .option("--force", "Overwrite existing prompt file.")
+  .action(async (options) => {
+    const cwd = process.cwd();
+    const force = Boolean(options.force);
+
+    const constitutionPath = path.join(cwd, ".uxpreflight", "design-constitution.json");
+
+    const constitutionExists = await pathExists(constitutionPath);
+
+    if (!constitutionExists) {
+      console.log("");
+      console.log("UXPreflight generate failed.");
+      console.log("----------------------------");
+      console.log("Missing .uxpreflight/design-constitution.json");
+      console.log("");
+      console.log("Run this first:");
+      console.log("npm run ux -- init");
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const constitution = await readJsonFile<UXPreflightDesignConstitution>(constitutionPath);
+    const constitutionValidation = validateDesignConstitution(constitution);
+
+    if (!constitutionValidation.success) {
+      console.log("");
+      console.log("UXPreflight generate failed.");
+      console.log("----------------------------");
+      console.log("Invalid .uxpreflight/design-constitution.json");
+      console.log("");
+
+      constitutionValidation.error.issues.forEach((issue) => {
+        console.log(`- ${issue.path.join(".")}: ${issue.message}`);
+      });
+
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const requirement =
+      options.requirement ??
+      `Create or improve the ${options.screen} screen while strictly following the UXPreflight design constitution.`;
+
+    const rulePacks = getDefaultRulePacks();
+
+    const prompt = generateAgentPrompt({
+      constitution,
+      rulePacks,
+      screenName: options.screen,
+      screenType: options.screenType,
+      userRequirement: requirement,
+      targetAgent: normalizeTargetAgent(options.targetAgent),
+      outputFormat: options.outputFormat,
+      detailLevel: normalizePromptDetailLevel(options.detailLevel)
+    });
+
+    const promptSummary = summarizeAgentPrompt(prompt, {
+      constitution,
+      rulePacks,
+      screenName: options.screen,
+      screenType: options.screenType,
+      userRequirement: requirement,
+      targetAgent: normalizeTargetAgent(options.targetAgent),
+      outputFormat: options.outputFormat,
+      detailLevel: normalizePromptDetailLevel(options.detailLevel)
+    });
+
+    const outputPath = path.isAbsolute(options.out)
+      ? options.out
+      : path.join(cwd, options.out);
+
+    const result = await writeFileSafe(outputPath, prompt, force);
+
+    console.log("");
+    console.log("UXPreflight prompt generated.");
+    console.log("-----------------------------");
+    console.log(`Screen: ${options.screen}`);
+    console.log(`Screen Type: ${options.screenType ?? "Not specified"}`);
+    console.log(`Target Agent: ${normalizeTargetAgent(options.targetAgent)}`);
+    console.log(`Detail Level: ${normalizePromptDetailLevel(options.detailLevel)}`);
+    console.log(`Output Format: ${options.outputFormat}`);
+    console.log("");
+    console.log(`Prompt File: ${path.relative(cwd, outputPath)}`);
+    console.log(`Status: ${result.status.toUpperCase()}`);
+    console.log(`Characters: ${promptSummary.characters}`);
+    console.log(`Lines: ${promptSummary.lines}`);
+    console.log(`Rule References: ${promptSummary.ruleReferenceCount}`);
+    console.log(`Required States: ${promptSummary.requiredStateCount}`);
+    console.log("");
+
+    if (result.status === "skipped") {
+      console.log("The prompt file already exists.");
+      console.log("Run with --force to overwrite it.");
+      console.log("");
+      return;
+    }
+
+    console.log("Next:");
+    console.log("- Open the generated prompt file.");
+    console.log("- Copy it into your AI agent before asking it to create UI/code.");
+    console.log("- The agent should now follow your project design constitution.");
+  });
+  
 program
   .command("doctor")
   .description("Check UXPreflight project setup health.")

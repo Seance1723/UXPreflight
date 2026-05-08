@@ -18,6 +18,11 @@ import {
   rulePacksInfo,
   validateDefaultRulePacks
 } from "@uxpreflight/rule-packs";
+import {
+  adaptersInfo,
+  generateAgentsMd,
+  summarizeAgentsMd
+} from "@uxpreflight/adapters";
 
 const program = new Command();
 
@@ -56,29 +61,27 @@ program
     const tokenBundle = createTokenExportBundle(sampleConstitution.tokens);
     const tokenSummary = summarizeTokenExports(tokenBundle);
 
-    const samplePrompt = generateAgentPrompt({
+    const samplePromptInput = {
       constitution: sampleConstitution,
       rulePacks,
       screenName: "Billing Settings",
       screenType: "billing_page",
       userRequirement:
         "Create a SaaS super admin billing settings page with API usage, plan rules, invoices, currency, tax, failed sync state, and audit log.",
-      targetAgent: "codex",
+      targetAgent: "codex" as const,
       outputFormat: "React + SCSS implementation",
-      detailLevel: "compact"
+      detailLevel: "compact" as const
+    };
+
+    const samplePrompt = generateAgentPrompt(samplePromptInput);
+    const promptSummary = summarizeAgentPrompt(samplePrompt, samplePromptInput);
+
+    const agentsMd = generateAgentsMd({
+      constitution: sampleConstitution,
+      rulePacks
     });
 
-    const promptSummary = summarizeAgentPrompt(samplePrompt, {
-      constitution: sampleConstitution,
-      rulePacks,
-      screenName: "Billing Settings",
-      screenType: "billing_page",
-      userRequirement:
-        "Create a SaaS super admin billing settings page with API usage, plan rules, invoices, currency, tax, failed sync state, and audit log.",
-      targetAgent: "codex",
-      outputFormat: "React + SCSS implementation",
-      detailLevel: "compact"
-    });
+    const agentsMdSummary = summarizeAgentsMd(agentsMd, rulePacks);
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -150,6 +153,24 @@ program
     console.log(`Includes Token Guidance: ${promptSummary.includesTokenGuidance ? "Yes" : "No"}`);
     console.log(`Includes Do-Not Rules: ${promptSummary.includesDoNotRules ? "Yes" : "No"}`);
 
+    console.log("");
+    console.log("Agent Adapters:");
+    console.log(`Package: ${adaptersInfo.name}`);
+    console.log(`Status: ${adaptersInfo.status}`);
+    console.log(`Supported: ${adaptersInfo.supportedAdapters.join(", ")}`);
+
+    console.log("");
+    console.log("AGENTS.md Adapter:");
+    console.log(`Characters: ${agentsMdSummary.characters}`);
+    console.log(`Lines: ${agentsMdSummary.lines}`);
+    console.log(`Rule Count: ${agentsMdSummary.ruleCount}`);
+    console.log(
+      `Includes Constitution Path: ${agentsMdSummary.includesDesignConstitutionPath ? "Yes" : "No"}`
+    );
+    console.log(`Includes Token Rules: ${agentsMdSummary.includesTokenRules ? "Yes" : "No"}`);
+    console.log(`Includes Do-Not Rules: ${agentsMdSummary.includesDoNotRules ? "Yes" : "No"}`);
+    console.log(`Includes State Rules: ${agentsMdSummary.includesStateRules ? "Yes" : "No"}`);
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
     const hasInvalidTokenExport =
       tokenSummary.jsonCharacters === 0 ||
@@ -162,20 +183,28 @@ program
       !promptSummary.includesDoNotRules ||
       promptSummary.ruleReferenceCount === 0;
 
+    const hasInvalidAgentsMd =
+      agentsMdSummary.characters === 0 ||
+      !agentsMdSummary.includesDesignConstitutionPath ||
+      !agentsMdSummary.includesTokenRules ||
+      !agentsMdSummary.includesDoNotRules ||
+      !agentsMdSummary.includesStateRules;
+
     console.log("");
 
     if (
       hasInvalidPack ||
       !constitutionValidation.success ||
       hasInvalidTokenExport ||
-      hasInvalidPrompt
+      hasInvalidPrompt ||
+      hasInvalidAgentsMd
     ) {
-      console.log("Module 11 setup has validation errors.");
+      console.log("Module 12 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 11 setup looks good.");
+    console.log("Module 12 setup looks good.");
   });
 
 program.parse();

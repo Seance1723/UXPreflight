@@ -14,6 +14,7 @@
     "doctor": "tsx src/index.ts doctor"
   },
   "dependencies": {
+    "@uxpreflight/adapters": "0.1.0",
     "@uxpreflight/core": "0.1.0",
     "@uxpreflight/rule-packs": "0.1.0",
     "commander": "^14.0.0"

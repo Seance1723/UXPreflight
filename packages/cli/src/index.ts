@@ -21,7 +21,9 @@ import {
 import {
   adaptersInfo,
   generateAgentsMd,
-  summarizeAgentsMd
+  generateCursorRules,
+  summarizeAgentsMd,
+  summarizeCursorRules
 } from "@uxpreflight/adapters";
 
 const program = new Command();
@@ -82,6 +84,13 @@ program
     });
 
     const agentsMdSummary = summarizeAgentsMd(agentsMd, rulePacks);
+
+    const cursorRules = generateCursorRules({
+      constitution: sampleConstitution,
+      rulePacks
+    });
+
+    const cursorRulesSummary = summarizeCursorRules(cursorRules, rulePacks);
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -171,7 +180,21 @@ program
     console.log(`Includes Do-Not Rules: ${agentsMdSummary.includesDoNotRules ? "Yes" : "No"}`);
     console.log(`Includes State Rules: ${agentsMdSummary.includesStateRules ? "Yes" : "No"}`);
 
+    console.log("");
+    console.log("Cursor Rules Adapter:");
+    console.log(`Characters: ${cursorRulesSummary.characters}`);
+    console.log(`Lines: ${cursorRulesSummary.lines}`);
+    console.log(`Rule Count: ${cursorRulesSummary.ruleCount}`);
+    console.log(`Includes alwaysApply: ${cursorRulesSummary.includesAlwaysApply ? "Yes" : "No"}`);
+    console.log(
+      `Includes Constitution Path: ${cursorRulesSummary.includesDesignConstitutionPath ? "Yes" : "No"}`
+    );
+    console.log(`Includes Token Rules: ${cursorRulesSummary.includesTokenRules ? "Yes" : "No"}`);
+    console.log(`Includes Do-Not Rules: ${cursorRulesSummary.includesDoNotRules ? "Yes" : "No"}`);
+    console.log(`Includes State Rules: ${cursorRulesSummary.includesStateRules ? "Yes" : "No"}`);
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
+
     const hasInvalidTokenExport =
       tokenSummary.jsonCharacters === 0 ||
       tokenSummary.cssVariableCount === 0 ||
@@ -190,6 +213,14 @@ program
       !agentsMdSummary.includesDoNotRules ||
       !agentsMdSummary.includesStateRules;
 
+    const hasInvalidCursorRules =
+      cursorRulesSummary.characters === 0 ||
+      !cursorRulesSummary.includesAlwaysApply ||
+      !cursorRulesSummary.includesDesignConstitutionPath ||
+      !cursorRulesSummary.includesTokenRules ||
+      !cursorRulesSummary.includesDoNotRules ||
+      !cursorRulesSummary.includesStateRules;
+
     console.log("");
 
     if (
@@ -197,14 +228,15 @@ program
       !constitutionValidation.success ||
       hasInvalidTokenExport ||
       hasInvalidPrompt ||
-      hasInvalidAgentsMd
+      hasInvalidAgentsMd ||
+      hasInvalidCursorRules
     ) {
-      console.log("Module 12 setup has validation errors.");
+      console.log("Module 13 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 12 setup looks good.");
+    console.log("Module 13 setup looks good.");
   });
 
 program.parse();

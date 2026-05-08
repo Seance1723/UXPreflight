@@ -60,6 +60,11 @@ import {
   CURRENT_MODULE
 } from "./cliMeta.js";
 
+import {
+  scanProject,
+  scannerInfo
+} from "@uxpreflight/scanner";
+
 const program = new Command();
 
 program
@@ -1512,6 +1517,80 @@ program
     console.log(`Core Status: ${core.status}`);
     console.log("");
   });
+program
+  .command("scan")
+  .description(COMMAND_HINTS.scan)
+  .option("--json", "Print scan result as JSON.")
+  .option("--max-files <number>", "Maximum number of files to scan.", "5000")
+  .action(async (options) => {
+    const cwd = process.cwd();
+    const maxFiles = Number.parseInt(String(options.maxFiles), 10);
+
+    if (Number.isNaN(maxFiles) || maxFiles <= 0) {
+      console.log("");
+      console.log("UXPreflight scan failed.");
+      console.log("------------------------");
+      console.log("--max-files must be a positive number.");
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const result = await scanProject({
+      rootDir: cwd,
+      maxFiles
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    console.log("");
+    console.log("UXPreflight Project Scan");
+    console.log("------------------------");
+    console.log(`Scanner Package: ${scannerInfo.name}`);
+    console.log(`Scanner Version: ${scannerInfo.version}`);
+    console.log(`Root: ${result.summary.rootDir}`);
+    console.log("");
+
+    console.log("File Summary:");
+    console.log(`- Total Files: ${result.summary.totalFiles}`);
+    console.log(`- Source Files: ${result.summary.sourceFiles}`);
+    console.log(`- Style Files: ${result.summary.styleFiles}`);
+    console.log(`- Markup Files: ${result.summary.markupFiles}`);
+    console.log(`- Config Files: ${result.summary.configFiles}`);
+    console.log(`- Documentation Files: ${result.summary.documentationFiles}`);
+    console.log(`- Asset Files: ${result.summary.assetFiles}`);
+    console.log(`- Other Files: ${result.summary.otherFiles}`);
+    console.log(`- Component Candidates: ${result.summary.componentCandidates}`);
+
+    console.log("");
+    console.log("Detected Extensions:");
+    Object.entries(result.summary.extensionCounts)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([extension, count]) => {
+        console.log(`- ${extension}: ${count}`);
+      });
+
+    console.log("");
+    console.log("Largest Files:");
+    result.summary.largestFiles.forEach((file) => {
+      console.log(`- ${file.relativePath} (${file.sizeBytes} bytes)`);
+    });
+
+    console.log("");
+
+    if (result.summary.totalFiles >= maxFiles) {
+      console.log(`Scan stopped after reaching max file limit: ${maxFiles}`);
+      console.log("Use --max-files to increase the limit.");
+      console.log("");
+    }
+
+    console.log("Next:");
+    console.log("- Release 0.2 Module 2 will extract design tokens from style files.");
+    console.log("- Release 0.2 Module 3 will detect component patterns.");
+  });
 
 program
   .command("doctor")
@@ -1580,6 +1659,12 @@ program
     console.log(`Core Package: ${core.name}`);
     console.log(`Version: ${core.version}`);
     console.log(`Status: ${core.status}`);
+
+    console.log("");
+    console.log("Project Scanner:");
+    console.log(`Package: ${scannerInfo.name}`);
+    console.log(`Version: ${scannerInfo.version}`);
+    console.log(`Status: ${scannerInfo.status}`);
 
     console.log("");
     console.log("Available Schemas:");

@@ -65,6 +65,7 @@ import {
   discoverDesignTokensFromFiles,
   scanProject,
   scannerInfo,
+  suggestComponentRegistryFromDiscovery,
   suggestDesignTokensFromDiscovery
 } from "@uxpreflight/scanner";
 
@@ -1527,6 +1528,7 @@ program
   .option("--tokens", "Discover design tokens from scanned files.")
   .option("--components", "Discover component patterns from scanned files.")
   .option("--suggest-tokens", "Suggest design tokens from discovered project values.")
+  .option("--suggest-components", "Suggest a component registry from detected component patterns.")
   .option("--max-files <number>", "Maximum number of files to scan.", "5000")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1558,9 +1560,16 @@ program
         ? suggestDesignTokensFromDiscovery(tokenDiscovery)
         : null;
 
-    const componentDiscovery = options.components
+    const shouldDiscoverComponents = Boolean(options.components || options.suggestComponents);
+
+    const componentDiscovery = shouldDiscoverComponents
       ? await discoverComponentPatternsFromFiles(result.files)
       : null;
+
+    const componentRegistrySuggestions =
+      componentDiscovery && options.suggestComponents
+        ? suggestComponentRegistryFromDiscovery(componentDiscovery)
+        : null;
 
     if (options.json) {
       console.log(
@@ -1569,7 +1578,8 @@ program
             ...result,
             tokenDiscovery,
             tokenSuggestions,
-            componentDiscovery
+            componentDiscovery,
+            componentRegistrySuggestions
           },
           null,
           2
@@ -1756,9 +1766,47 @@ program
       });
     }
 
+    if (componentRegistrySuggestions) {
+      console.log("");
+      console.log("Component Registry Suggestions:");
+      console.log(`- Items Suggested: ${componentRegistrySuggestions.summary.itemsSuggested}`);
+      console.log(`- High Confidence: ${componentRegistrySuggestions.summary.highConfidenceItems}`);
+      console.log(`- Medium Confidence: ${componentRegistrySuggestions.summary.mediumConfidenceItems}`);
+      console.log(`- Low Confidence: ${componentRegistrySuggestions.summary.lowConfidenceItems}`);
+      console.log(`- Reusable Patterns: ${componentRegistrySuggestions.summary.reusablePatterns}`);
+      console.log(
+        `- Missing Core Patterns: ${
+          componentRegistrySuggestions.summary.missingCorePatterns.length > 0
+            ? componentRegistrySuggestions.summary.missingCorePatterns.join(", ")
+            : "None"
+        }`
+      );
+
+      console.log("");
+      console.log("Suggested Registry Items:");
+
+      if (componentRegistrySuggestions.items.length === 0) {
+        console.log("- None suggested");
+      }
+
+      componentRegistrySuggestions.items.forEach((item) => {
+        console.log("");
+        console.log(`- ${item.recommendedName}`);
+        console.log(`  Type: ${item.type}`);
+        console.log(`  Confidence: ${item.confidence}`);
+        console.log(`  Reason: ${item.reason}`);
+        console.log(`  Reuse: ${item.reuseGuidance}`);
+        console.log(
+          `  Source Files: ${
+            item.sourceFiles.length > 0 ? item.sourceFiles.slice(0, 4).join(", ") : "None"
+          }`
+        );
+      });
+    }
+
     console.log("Next:");
-    console.log("- Release 0.2 Module 5 will convert detected component patterns into component registry suggestions.");
     console.log("- Release 0.2 Module 6 will support writing scan suggestions to .uxpreflight/scan-report.json.");
+    console.log("- Release 0.2 Module 7 will support generating a component-registry.json file.");
   });
 
 program

@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Release 0.2 Module 4 token suggestion engine ready"
+    status: "Release 0.2 Module 5 component registry suggestion ready"
   };
 }
 

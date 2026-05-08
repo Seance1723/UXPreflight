@@ -178,3 +178,27 @@ export interface UXPreflightDesignTokenSuggestionResult {
   colors: UXPreflightColorTokenSuggestions;
   scales: UXPreflightScaleTokenSuggestions;
 }
+
+export interface UXPreflightComponentRegistryItem {
+  type: UXPreflightComponentPatternType;
+  recommendedName: string;
+  confidence: UXPreflightSuggestionConfidence;
+  sourceFiles: string[];
+  detectedSignals: string[];
+  reason: string;
+  reuseGuidance: string;
+}
+
+export interface UXPreflightComponentRegistrySuggestionSummary {
+  itemsSuggested: number;
+  highConfidenceItems: number;
+  mediumConfidenceItems: number;
+  lowConfidenceItems: number;
+  reusablePatterns: number;
+  missingCorePatterns: UXPreflightComponentPatternType[];
+}
+
+export interface UXPreflightComponentRegistrySuggestionResult {
+  summary: UXPreflightComponentRegistrySuggestionSummary;
+  items: UXPreflightComponentRegistryItem[];
+}

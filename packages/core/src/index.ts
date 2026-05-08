@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Module 22 documentation ready"
+    status: "Module 23 open-source release files ready"
   };
 }
 

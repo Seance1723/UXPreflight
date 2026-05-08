@@ -1,36 +1,82 @@
-# Contributing to UX Preflight
+# Contributing to UXPreflight
 
-Thank you for your interest in contributing! We welcome contributions to help improve UX Preflight.
+Thank you for helping improve UXPreflight. Contributions of all sizes are welcome, from typo fixes and examples to new rule packs and CLI improvements.
 
-## Getting Started
+## What UXPreflight Is
 
-1. Fork the repository
-2. Clone your fork: `git clone <your-fork>`
-3. Install dependencies: `npm install` or `yarn install`
-4. Create a feature branch: `git checkout -b feature/your-feature-name`
+UXPreflight is an open-source, local-first design governance engine for AI-generated frontend applications.
 
-## Development
+It creates a project-level design constitution so AI coding/design agents follow consistent UI, UX, accessibility, component, state, spacing, color, and design-system rules before generating frontend code.
 
-- Build: `npm run build`
-- Test: `npm run test`
-- Lint: `npm run lint`
-- Dev mode: `npm run dev`
+## Ways to Contribute
 
-## Submitting Changes
+- Improve documentation
+- Add or improve UX rules
+- Add accessibility rules
+- Add component rules
+- Add product-type rules
+- Add screen-type rules
+- Improve CLI commands
+- Improve adapters
+- Improve validation
+- Add tests
+- Report bugs
 
-1. Make your changes in a feature branch
-2. Add tests for your changes
-3. Ensure all tests pass: `npm run test`
-4. Ensure linting passes: `npm run lint`
-5. Submit a pull request with a clear description of your changes
+## Project Philosophy
+
+- Rules must be practical.
+- Avoid vague advice like "make it beautiful."
+- Prefer specific rules like "Every upload component must show file-wise status."
+- Accessibility rules should be clear and usable.
+- UXPreflight should stay local-first.
+- The tool should help AI agents generate better UI before coding, not only review after generation.
+
+## Local Development
+
+```bash
+npm install
+npm run build
+npm run ux -- doctor
+npm run ux -- validate
+```
+
+## Before Submitting a PR
+
+Run:
+
+```bash
+npm run build
+npm run ux -- doctor
+npm run ux -- validate
+```
+
+## Rule Contribution Guidelines
+
+A good rule should include:
+
+- Clear title
+- Clear description
+- Category
+- Severity
+- Confidence
+- Applies-to list
+- Do-not rules
+- Pass examples
+- Fail examples
+- Tags
+
+## Pull Request Guidelines
+
+- Keep PRs focused.
+- Explain what changed.
+- Mention tests run.
+- Do not mix unrelated changes.
+- Update docs when behavior changes.
 
 ## Code Style
 
-Please follow the existing code style and conventions in the project. We use:
-- TypeScript for type safety
-- ESLint for linting
-- Prettier for code formatting
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
+- TypeScript
+- Keep functions small and readable
+- Prefer clear names
+- Avoid unnecessary dependencies
+- Preserve local-first behavior

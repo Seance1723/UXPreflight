@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: mailto:security@example.com
+    about: Please report sensitive security issues privately instead of opening a public issue.
+  - name: UXPreflight documentation
+    url: https://github.com/
+    about: Read the project documentation before opening a support-style issue.

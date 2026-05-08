@@ -2,10 +2,12 @@
 
 import { Command } from "commander";
 import {
+  createTokenExportBundle,
   generateDesignConstitution,
   getCoreInfo,
   getSchemaInfo,
   summarizeDesignConstitution,
+  summarizeTokenExports,
   validateDesignConstitution,
   type UXPreflightProjectConfig
 } from "@uxpreflight/core";
@@ -47,6 +49,9 @@ program
 
     const constitutionValidation = validateDesignConstitution(sampleConstitution);
     const constitutionSummary = summarizeDesignConstitution(sampleConstitution);
+
+    const tokenBundle = createTokenExportBundle(sampleConstitution.tokens);
+    const tokenSummary = summarizeTokenExports(tokenBundle);
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -101,17 +106,29 @@ program
       console.log(`- ${group}: ${count}`);
     });
 
+    console.log("");
+    console.log("Design Token Export:");
+    console.log(`JSON Characters: ${tokenSummary.jsonCharacters}`);
+    console.log(`CSS Characters: ${tokenSummary.cssCharacters}`);
+    console.log(`SCSS Characters: ${tokenSummary.scssCharacters}`);
+    console.log(`CSS Variables: ${tokenSummary.cssVariableCount}`);
+    console.log(`SCSS Variables: ${tokenSummary.scssVariableCount}`);
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
+    const hasInvalidTokenExport =
+      tokenSummary.jsonCharacters === 0 ||
+      tokenSummary.cssVariableCount === 0 ||
+      tokenSummary.scssVariableCount === 0;
 
     console.log("");
 
-    if (hasInvalidPack || !constitutionValidation.success) {
-      console.log("Module 9 setup has validation errors.");
+    if (hasInvalidPack || !constitutionValidation.success || hasInvalidTokenExport) {
+      console.log("Module 10 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 9 setup looks good.");
+    console.log("Module 10 setup looks good.");
   });
 
 program.parse();

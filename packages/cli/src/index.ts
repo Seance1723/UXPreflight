@@ -8,7 +8,9 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
 import {
+  createDefaultTokens,
   createTokenExportBundle,
+  DEFAULT_REQUIRED_STATES,
   generateAgentPrompt,
   generateDesignConstitution,
   getCoreInfo,
@@ -382,6 +384,44 @@ async function checkProjectHealth(cwd: string) {
     isInitialized: summary.ok > 0,
     isHealthy: summary.missing === 0 && summary.invalid === 0
   };
+}
+
+function flattenDefaultRules() {
+  return getDefaultRulePacks().flatMap((pack) => {
+    return pack.rules.map((rule) => ({
+      ...rule,
+      packId: pack.id,
+      packName: pack.name
+    }));
+  });
+}
+
+async function getCurrentProjectConstitution(cwd: string) {
+  const constitutionPath = path.join(cwd, ".uxpreflight", "design-constitution.json");
+  const exists = await pathExists(constitutionPath);
+
+  if (!exists) {
+    return null;
+  }
+
+  const constitution = await readJsonFile<UXPreflightDesignConstitution>(constitutionPath);
+  const validation = validateDesignConstitution(constitution);
+
+  if (!validation.success) {
+    return null;
+  }
+
+  return constitution;
+}
+
+function normalizeListType(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function printSectionTitle(title: string) {
+  console.log("");
+  console.log(title);
+  console.log("-".repeat(title.length));
 }
 
 async function askQuestion(
@@ -920,6 +960,195 @@ program
   });
 
 program
+  .command("list")
+  .description("List UXPreflight rule packs, rules, states, or tokens.")
+  .argument("<type>", "packs, rules, states, or tokens")
+  .option("--category <category>", "Filter rules by category.")
+  .option("--severity <severity>", "Filter rules by severity.")
+  .option("--search <text>", "Search rules by title, description, tag, or ID.")
+  .action(async (type, options) => {
+    const cwd = process.cwd();
+    const listType = normalizeListType(type);
+
+    const allowedTypes = ["packs", "rules", "states", "tokens"];
+
+    if (!allowedTypes.includes(listType)) {
+      console.log("");
+      console.log("UXPreflight list failed.");
+      console.log("------------------------");
+      console.log(`Invalid list type: ${type}`);
+      console.log("");
+      console.log("Allowed types:");
+      allowedTypes.forEach((item) => console.log(`- ${item}`));
+      console.log("");
+      return;
+    }
+
+    if (listType === "packs") {
+      const packs = getDefaultRulePacks();
+
+      printSectionTitle("UXPreflight Rule Packs");
+
+      packs.forEach((pack) => {
+        console.log("");
+        console.log(`Name: ${pack.name}`);
+        console.log(`ID: ${pack.id}`);
+        console.log(`Category: ${pack.category}`);
+        console.log(`Version: ${pack.version}`);
+        console.log(`Rules: ${pack.rules.length}`);
+        console.log(`Description: ${pack.description}`);
+      });
+
+      console.log("");
+      console.log(`Total Packs: ${packs.length}`);
+      return;
+    }
+
+    if (listType === "rules") {
+      let rules = flattenDefaultRules();
+
+      if (options.category) {
+        const category = String(options.category).trim().toLowerCase();
+        rules = rules.filter((rule) => rule.category === category);
+      }
+
+      if (options.severity) {
+        const severity = String(options.severity).trim().toLowerCase();
+        rules = rules.filter((rule) => rule.severity === severity);
+      }
+
+      if (options.search) {
+        const search = String(options.search).trim().toLowerCase();
+
+        rules = rules.filter((rule) => {
+          const searchableText = [
+            rule.id,
+            rule.title,
+            rule.description,
+            rule.category,
+            rule.severity,
+            rule.confidence,
+            rule.packId,
+            rule.packName,
+            ...(rule.tags ?? [])
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          return searchableText.includes(search);
+        });
+      }
+
+      printSectionTitle("UXPreflight Rules");
+
+      rules.forEach((rule) => {
+        console.log("");
+        console.log(`[${rule.severity.toUpperCase()}] ${rule.title}`);
+        console.log(`ID: ${rule.id}`);
+        console.log(`Pack: ${rule.packName}`);
+        console.log(`Category: ${rule.category}`);
+        console.log(`Confidence: ${rule.confidence}`);
+        console.log(`Applies To: ${rule.appliesTo.join(", ")}`);
+        console.log(`Tags: ${(rule.tags ?? []).join(", ") || "None"}`);
+      });
+
+      console.log("");
+      console.log(`Total Rules: ${rules.length}`);
+
+      if (rules.length === 0) {
+        console.log("No rules matched your filters.");
+      }
+
+      return;
+    }
+
+    if (listType === "states") {
+      const constitution = await getCurrentProjectConstitution(cwd);
+      const states = constitution?.requiredStates ?? DEFAULT_REQUIRED_STATES;
+
+      printSectionTitle("UXPreflight Required States");
+
+      states.forEach((state, index) => {
+        console.log(`${index + 1}. ${state}`);
+      });
+
+      console.log("");
+      console.log(`Total States: ${states.length}`);
+
+      if (!constitution) {
+        console.log("");
+        console.log("Note: No valid project constitution found.");
+        console.log("Showing default UXPreflight states.");
+      }
+
+      return;
+    }
+
+    if (listType === "tokens") {
+      const constitution = await getCurrentProjectConstitution(cwd);
+      const tokens = constitution?.tokens ?? createDefaultTokens();
+
+      printSectionTitle("UXPreflight Design Tokens");
+
+      console.log("");
+      console.log("Colors:");
+      Object.entries(tokens.colors).forEach(([key, value]) => {
+        if (value) {
+          console.log(`- ${key}: ${value}`);
+        }
+      });
+
+      console.log("");
+      console.log("Typography:");
+      console.log(`- fontFamily: ${tokens.typography.fontFamily}`);
+      Object.entries(tokens.typography.scale).forEach(([key, value]) => {
+        console.log(`- ${key}: ${value}`);
+      });
+
+      if (tokens.typography.weights) {
+        console.log("");
+        console.log("Font Weights:");
+        Object.entries(tokens.typography.weights).forEach(([key, value]) => {
+          console.log(`- ${key}: ${value}`);
+        });
+      }
+
+      console.log("");
+      console.log("Spacing:");
+      console.log(`- base: ${tokens.spacing.base}px`);
+      console.log(`- scale: ${tokens.spacing.scale.map((value) => `${value}px`).join(", ")}`);
+
+      console.log("");
+      console.log("Radius:");
+      Object.entries(tokens.radius).forEach(([key, value]) => {
+        console.log(`- ${key}: ${value}`);
+      });
+
+      if (tokens.shadows) {
+        console.log("");
+        console.log("Shadows:");
+        Object.entries(tokens.shadows).forEach(([key, value]) => {
+          console.log(`- ${key}: ${value}`);
+        });
+      }
+
+      if (tokens.breakpoints) {
+        console.log("");
+        console.log("Breakpoints:");
+        Object.entries(tokens.breakpoints).forEach(([key, value]) => {
+          console.log(`- ${key}: ${value}`);
+        });
+      }
+
+      if (!constitution) {
+        console.log("");
+        console.log("Note: No valid project constitution found.");
+        console.log("Showing default UXPreflight tokens.");
+      }
+    }
+  });
+
+program
   .command("doctor")
   .description("Check UXPreflight project setup health.")
   .action(async () => {
@@ -1148,18 +1377,18 @@ program
           hasInvalidAgentsMd ||
           hasInvalidCursorRules
         ) {
-          console.log("Module 17 setup has validation errors.");
+          console.log("Module 18 setup has validation errors.");
           process.exitCode = 1;
           return;
         }
 
         if (projectHealth.isInitialized && !projectHealth.isHealthy) {
           console.log("");
-          console.log("Module 17 setup is working, but current project health has issues.");
+          console.log("Module 18 setup is working, but current project health has issues.");
           return;
         }
 
-        console.log("Module 17 setup looks good.");
+        console.log("Module 18 setup looks good.");
   });
 
 program.parse();

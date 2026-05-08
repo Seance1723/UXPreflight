@@ -46,3 +46,41 @@ export interface UXPreflightScanResult {
   files: UXPreflightScannedFile[];
   summary: UXPreflightScanSummary;
 }
+
+export interface UXPreflightTokenOccurrence {
+  value: string;
+  count: number;
+  files: string[];
+}
+
+export interface UXPreflightNamedTokenOccurrence {
+  name: string;
+  value: string;
+  count: number;
+  files: string[];
+}
+
+export interface UXPreflightTokenDiscoverySummary {
+  scannedFiles: number;
+  skippedLargeFiles: number;
+  colors: number;
+  cssVariables: number;
+  scssVariables: number;
+  fontSizes: number;
+  spacingValues: number;
+  radiusValues: number;
+  shadowValues: number;
+  breakpoints: number;
+}
+
+export interface UXPreflightTokenDiscoveryResult {
+  summary: UXPreflightTokenDiscoverySummary;
+  colors: UXPreflightTokenOccurrence[];
+  cssVariables: UXPreflightNamedTokenOccurrence[];
+  scssVariables: UXPreflightNamedTokenOccurrence[];
+  fontSizes: UXPreflightTokenOccurrence[];
+  spacingValues: UXPreflightTokenOccurrence[];
+  radiusValues: UXPreflightTokenOccurrence[];
+  shadowValues: UXPreflightTokenOccurrence[];
+  breakpoints: UXPreflightTokenOccurrence[];
+}

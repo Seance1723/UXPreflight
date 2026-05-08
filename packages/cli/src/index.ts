@@ -61,6 +61,7 @@ import {
 } from "./cliMeta.js";
 
 import {
+  discoverDesignTokensFromFiles,
   scanProject,
   scannerInfo
 } from "@uxpreflight/scanner";
@@ -1521,6 +1522,7 @@ program
   .command("scan")
   .description(COMMAND_HINTS.scan)
   .option("--json", "Print scan result as JSON.")
+  .option("--tokens", "Discover design tokens from scanned files.")
   .option("--max-files <number>", "Maximum number of files to scan.", "5000")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1541,8 +1543,21 @@ program
       maxFiles
     });
 
+    const tokenDiscovery = options.tokens
+      ? await discoverDesignTokensFromFiles(result.files)
+      : null;
+
     if (options.json) {
-      console.log(JSON.stringify(result, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            ...result,
+            tokenDiscovery
+          },
+          null,
+          2
+        )
+      );
       return;
     }
 
@@ -1587,9 +1602,70 @@ program
       console.log("");
     }
 
+        if (tokenDiscovery) {
+          console.log("");
+          console.log("Design Token Discovery:");
+          console.log(`- Files Scanned for Tokens: ${tokenDiscovery.summary.scannedFiles}`);
+          console.log(`- Large Files Skipped: ${tokenDiscovery.summary.skippedLargeFiles}`);
+          console.log(`- Colors: ${tokenDiscovery.summary.colors}`);
+          console.log(`- CSS Variables: ${tokenDiscovery.summary.cssVariables}`);
+          console.log(`- SCSS Variables: ${tokenDiscovery.summary.scssVariables}`);
+          console.log(`- Font Sizes: ${tokenDiscovery.summary.fontSizes}`);
+          console.log(`- Spacing Values: ${tokenDiscovery.summary.spacingValues}`);
+          console.log(`- Radius Values: ${tokenDiscovery.summary.radiusValues}`);
+          console.log(`- Shadow Values: ${tokenDiscovery.summary.shadowValues}`);
+          console.log(`- Breakpoints: ${tokenDiscovery.summary.breakpoints}`);
+
+          const printTopValues = (
+            title: string,
+            items: Array<{ value: string; count: number; files: string[] }>
+          ) => {
+            console.log("");
+            console.log(title);
+
+            if (items.length === 0) {
+              console.log("- None detected");
+              return;
+            }
+
+            items.slice(0, 10).forEach((item) => {
+              console.log(`- ${item.value} (${item.count})`);
+              console.log(`  ${item.files.slice(0, 2).join(", ")}`);
+            });
+          };
+
+          const printTopNamedValues = (
+            title: string,
+            items: Array<{ name: string; value: string; count: number; files: string[] }>
+          ) => {
+            console.log("");
+            console.log(title);
+
+            if (items.length === 0) {
+              console.log("- None detected");
+              return;
+            }
+
+            items.slice(0, 10).forEach((item) => {
+              console.log(`- ${item.name}: ${item.value} (${item.count})`);
+              console.log(`  ${item.files.slice(0, 2).join(", ")}`);
+            });
+          };
+
+          printTopValues("Top Colors:", tokenDiscovery.colors);
+          printTopNamedValues("Top CSS Variables:", tokenDiscovery.cssVariables);
+          printTopNamedValues("Top SCSS Variables:", tokenDiscovery.scssVariables);
+          printTopValues("Top Font Sizes:", tokenDiscovery.fontSizes);
+          printTopValues("Top Spacing Values:", tokenDiscovery.spacingValues);
+          printTopValues("Top Radius Values:", tokenDiscovery.radiusValues);
+          printTopValues("Top Shadows:", tokenDiscovery.shadowValues);
+          printTopValues("Top Breakpoints:", tokenDiscovery.breakpoints);
+        }
+
+
     console.log("Next:");
-    console.log("- Release 0.2 Module 2 will extract design tokens from style files.");
     console.log("- Release 0.2 Module 3 will detect component patterns.");
+    console.log("- Release 0.2 Module 4 will convert discovered tokens into constitution suggestions.");
   });
 
 program

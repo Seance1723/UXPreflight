@@ -424,6 +424,152 @@ function printSectionTitle(title: string) {
   console.log("-".repeat(title.length));
 }
 
+function formatOptionalList(items?: string[]) {
+  if (!items || items.length === 0) {
+    return "- None";
+  }
+
+  return items.map((item) => `- ${item}`).join("\n");
+}
+
+function findRuleById(ruleId: string) {
+  const normalizedRuleId = ruleId.trim().toLowerCase();
+
+  for (const pack of getDefaultRulePacks()) {
+    const rule = pack.rules.find((item) => item.id.toLowerCase() === normalizedRuleId);
+
+    if (rule) {
+      return {
+        rule,
+        pack
+      };
+    }
+  }
+
+  return null;
+}
+
+function findPackById(packId: string) {
+  const normalizedPackId = packId.trim().toLowerCase();
+
+  return (
+    getDefaultRulePacks().find((pack) => {
+      return pack.id.toLowerCase() === normalizedPackId || pack.name.toLowerCase() === normalizedPackId;
+    }) ?? null
+  );
+}
+
+function printRuleDetails(ruleId: string) {
+  const result = findRuleById(ruleId);
+
+  if (!result) {
+    console.log("");
+    console.log("Rule not found.");
+    console.log("---------------");
+    console.log(`Rule ID: ${ruleId}`);
+    console.log("");
+    console.log("Try:");
+    console.log("npm run ux -- list rules");
+    console.log("");
+    return false;
+  }
+
+  const { rule, pack } = result;
+
+  printSectionTitle(rule.title);
+
+  console.log(`ID: ${rule.id}`);
+  console.log(`Pack: ${pack.name}`);
+  console.log(`Category: ${rule.category}`);
+  console.log(`Severity: ${rule.severity}`);
+  console.log(`Confidence: ${rule.confidence}`);
+  console.log(`Applies To: ${rule.appliesTo.join(", ")}`);
+  console.log(`Tags: ${(rule.tags ?? []).join(", ") || "None"}`);
+
+  console.log("");
+  console.log("Description:");
+  console.log(rule.description);
+
+  console.log("");
+  console.log("Do Not:");
+  console.log(formatOptionalList(rule.doNot));
+
+  console.log("");
+  console.log("Pass Examples:");
+  console.log(formatOptionalList(rule.examples?.pass));
+
+  console.log("");
+  console.log("Fail Examples:");
+  console.log(formatOptionalList(rule.examples?.fail));
+
+  return true;
+}
+
+function printPackDetails(packId: string) {
+  const pack = findPackById(packId);
+
+  if (!pack) {
+    console.log("");
+    console.log("Rule pack not found.");
+    console.log("--------------------");
+    console.log(`Pack ID/Name: ${packId}`);
+    console.log("");
+    console.log("Try:");
+    console.log("npm run ux -- list packs");
+    console.log("");
+    return false;
+  }
+
+  printSectionTitle(pack.name);
+
+  console.log(`ID: ${pack.id}`);
+  console.log(`Category: ${pack.category}`);
+  console.log(`Version: ${pack.version}`);
+  console.log(`Rules: ${pack.rules.length}`);
+
+  console.log("");
+  console.log("Description:");
+  console.log(pack.description);
+
+  console.log("");
+  console.log("Rules:");
+
+  pack.rules.forEach((rule) => {
+    console.log(`- [${rule.severity.toUpperCase()}] ${rule.id} — ${rule.title}`);
+  });
+
+  return true;
+}
+
+function printConstitutionSummary(constitution: UXPreflightDesignConstitution) {
+  const summary = summarizeDesignConstitution(constitution);
+
+  printSectionTitle("UXPreflight Design Constitution");
+
+  console.log(`Project: ${summary.projectName}`);
+  console.log(`Product Type: ${summary.productType}`);
+  console.log(`Frontend Stack: ${summary.frontendStack}`);
+  console.log(`Strictness: ${summary.strictness}`);
+  console.log(`Version: ${summary.version}`);
+  console.log(`Required States: ${summary.requiredStateCount}`);
+  console.log(`Total Rule References: ${summary.totalRules}`);
+
+  console.log("");
+  console.log("Rule References by Group:");
+  Object.entries(summary.ruleCounts).forEach(([group, count]) => {
+    console.log(`- ${group}: ${count}`);
+  });
+
+  console.log("");
+  console.log("Design Tokens:");
+  console.log(`- Primary Color: ${constitution.tokens.colors.primary}`);
+  console.log(`- Background: ${constitution.tokens.colors.background}`);
+  console.log(`- Surface: ${constitution.tokens.colors.surface}`);
+  console.log(`- Text Primary: ${constitution.tokens.colors.textPrimary}`);
+  console.log(`- Font Family: ${constitution.tokens.typography.fontFamily}`);
+  console.log(`- Spacing Base: ${constitution.tokens.spacing.base}px`);
+}
+
 async function askQuestion(
   rl: readline.Interface,
   question: string,
@@ -1149,6 +1295,123 @@ program
   });
 
 program
+  .command("show")
+  .description("Show one UXPreflight rule, rule pack, or the active design constitution.")
+  .argument("<type>", "rule, pack, or constitution")
+  .argument("[id]", "Rule ID or pack ID/name. Not required for constitution.")
+  .option("--json", "Print raw JSON output.")
+  .action(async (type, id, options) => {
+    const cwd = process.cwd();
+    const showType = String(type).trim().toLowerCase();
+
+    const allowedTypes = ["rule", "pack", "constitution"];
+
+    if (!allowedTypes.includes(showType)) {
+      console.log("");
+      console.log("UXPreflight show failed.");
+      console.log("------------------------");
+      console.log(`Invalid show type: ${type}`);
+      console.log("");
+      console.log("Allowed types:");
+      allowedTypes.forEach((item) => console.log(`- ${item}`));
+      console.log("");
+      return;
+    }
+
+    if (showType === "rule") {
+      if (!id) {
+        console.log("");
+        console.log("Rule ID is required.");
+        console.log("--------------------");
+        console.log("Example:");
+        console.log("npm run ux -- show rule ux_goal_clarity_001");
+        console.log("");
+        return;
+      }
+
+      const result = findRuleById(String(id));
+
+      if (!result) {
+        console.log("");
+        console.log("Rule not found.");
+        console.log("---------------");
+        console.log(`Rule ID: ${id}`);
+        console.log("");
+        console.log("Try:");
+        console.log("npm run ux -- list rules");
+        console.log("");
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(result.rule, null, 2));
+        return;
+      }
+
+      printRuleDetails(String(id));
+      return;
+    }
+
+    if (showType === "pack") {
+      if (!id) {
+        console.log("");
+        console.log("Pack ID or name is required.");
+        console.log("----------------------------");
+        console.log("Example:");
+        console.log("npm run ux -- show pack component-rules");
+        console.log("");
+        return;
+      }
+
+      const pack = findPackById(String(id));
+
+      if (!pack) {
+        console.log("");
+        console.log("Rule pack not found.");
+        console.log("--------------------");
+        console.log(`Pack ID/Name: ${id}`);
+        console.log("");
+        console.log("Try:");
+        console.log("npm run ux -- list packs");
+        console.log("");
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(pack, null, 2));
+        return;
+      }
+
+      printPackDetails(String(id));
+      return;
+    }
+
+    if (showType === "constitution") {
+      const constitution = await getCurrentProjectConstitution(cwd);
+
+      if (!constitution) {
+        console.log("");
+        console.log("Design constitution not found or invalid.");
+        console.log("-----------------------------------------");
+        console.log("Missing or invalid file:");
+        console.log(".uxpreflight/design-constitution.json");
+        console.log("");
+        console.log("Run:");
+        console.log("npm run ux -- init");
+        console.log("");
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(constitution, null, 2));
+        return;
+      }
+
+      printConstitutionSummary(constitution);
+    }
+  });
+
+program
   .command("doctor")
   .description("Check UXPreflight project setup health.")
   .action(async () => {
@@ -1377,18 +1640,18 @@ program
           hasInvalidAgentsMd ||
           hasInvalidCursorRules
         ) {
-          console.log("Module 18 setup has validation errors.");
+          console.log("Module 19 setup has validation errors.");
           process.exitCode = 1;
           return;
         }
 
         if (projectHealth.isInitialized && !projectHealth.isHealthy) {
           console.log("");
-          console.log("Module 18 setup is working, but current project health has issues.");
+          console.log("Module 19 setup is working, but current project health has issues.");
           return;
         }
 
-        console.log("Module 18 setup looks good.");
+        console.log("Module 19 setup looks good.");
   });
 
 program.parse();

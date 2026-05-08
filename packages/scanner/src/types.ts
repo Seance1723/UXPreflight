@@ -84,3 +84,56 @@ export interface UXPreflightTokenDiscoveryResult {
   shadowValues: UXPreflightTokenOccurrence[];
   breakpoints: UXPreflightTokenOccurrence[];
 }
+
+export type UXPreflightComponentPatternType =
+  | "button"
+  | "form"
+  | "table"
+  | "card"
+  | "modal"
+  | "tabs"
+  | "upload"
+  | "statusBadge"
+  | "kpiCard"
+  | "chart"
+  | "sidebar"
+  | "navbar";
+
+export interface UXPreflightComponentCandidate {
+  name: string;
+  relativePath: string;
+  extension: string;
+  sizeBytes: number;
+  signals: UXPreflightComponentPatternType[];
+}
+
+export interface UXPreflightComponentPatternOccurrence {
+  pattern: UXPreflightComponentPatternType;
+  count: number;
+  files: string[];
+}
+
+export interface UXPreflightComponentDiscoverySummary {
+  scannedFiles: number;
+  skippedLargeFiles: number;
+  componentCandidates: number;
+  patternsDetected: number;
+  buttons: number;
+  forms: number;
+  tables: number;
+  cards: number;
+  modals: number;
+  tabs: number;
+  uploads: number;
+  statusBadges: number;
+  kpiCards: number;
+  charts: number;
+  sidebars: number;
+  navbars: number;
+}
+
+export interface UXPreflightComponentDiscoveryResult {
+  summary: UXPreflightComponentDiscoverySummary;
+  candidates: UXPreflightComponentCandidate[];
+  patterns: UXPreflightComponentPatternOccurrence[];
+}

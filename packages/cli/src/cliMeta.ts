@@ -2,7 +2,7 @@ export const CLI_NAME = "uxpreflight";
 
 export const CLI_VERSION = "0.1.0";
 
-export const CURRENT_MODULE = "Release 0.2 Module 2";
+export const CURRENT_MODULE = "Release 0.2 Module 3";
 
 export const CLI_DESCRIPTION =
   "Open-source design governance engine for AI-generated frontend applications.";
@@ -56,6 +56,12 @@ Examples:
   Scan current project as JSON:
     npm run ux -- scan --tokens --json
     
+    Scan current project and discover component patterns:
+    npm run ux -- scan --components
+
+  Scan tokens and components together:
+    npm run ux -- scan --tokens --components
+    
   Check full project health:
     npm run ux -- doctor
 `;
@@ -68,5 +74,5 @@ export const COMMAND_HINTS = {
   show: "Show one rule, one pack, or the active design constitution.",
   validate: "Validate current UXPreflight project files.",
   doctor: "Run full internal and project health checks.",
-  scan: "Scan the current project and optionally discover design tokens."
+  scan: "Scan the current project and optionally discover design tokens and component patterns."
 };

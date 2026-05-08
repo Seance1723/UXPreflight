@@ -61,6 +61,7 @@ import {
 } from "./cliMeta.js";
 
 import {
+  discoverComponentPatternsFromFiles,
   discoverDesignTokensFromFiles,
   scanProject,
   scannerInfo
@@ -1523,6 +1524,7 @@ program
   .description(COMMAND_HINTS.scan)
   .option("--json", "Print scan result as JSON.")
   .option("--tokens", "Discover design tokens from scanned files.")
+  .option("--components", "Discover component patterns from scanned files.")
   .option("--max-files <number>", "Maximum number of files to scan.", "5000")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1547,12 +1549,17 @@ program
       ? await discoverDesignTokensFromFiles(result.files)
       : null;
 
+    const componentDiscovery = options.components
+      ? await discoverComponentPatternsFromFiles(result.files)
+      : null;
+
     if (options.json) {
       console.log(
         JSON.stringify(
           {
             ...result,
-            tokenDiscovery
+            tokenDiscovery,
+            componentDiscovery
           },
           null,
           2
@@ -1602,70 +1609,115 @@ program
       console.log("");
     }
 
-        if (tokenDiscovery) {
-          console.log("");
-          console.log("Design Token Discovery:");
-          console.log(`- Files Scanned for Tokens: ${tokenDiscovery.summary.scannedFiles}`);
-          console.log(`- Large Files Skipped: ${tokenDiscovery.summary.skippedLargeFiles}`);
-          console.log(`- Colors: ${tokenDiscovery.summary.colors}`);
-          console.log(`- CSS Variables: ${tokenDiscovery.summary.cssVariables}`);
-          console.log(`- SCSS Variables: ${tokenDiscovery.summary.scssVariables}`);
-          console.log(`- Font Sizes: ${tokenDiscovery.summary.fontSizes}`);
-          console.log(`- Spacing Values: ${tokenDiscovery.summary.spacingValues}`);
-          console.log(`- Radius Values: ${tokenDiscovery.summary.radiusValues}`);
-          console.log(`- Shadow Values: ${tokenDiscovery.summary.shadowValues}`);
-          console.log(`- Breakpoints: ${tokenDiscovery.summary.breakpoints}`);
+    if (tokenDiscovery) {
+      console.log("");
+      console.log("Design Token Discovery:");
+      console.log(`- Files Scanned for Tokens: ${tokenDiscovery.summary.scannedFiles}`);
+      console.log(`- Large Files Skipped: ${tokenDiscovery.summary.skippedLargeFiles}`);
+      console.log(`- Colors: ${tokenDiscovery.summary.colors}`);
+      console.log(`- CSS Variables: ${tokenDiscovery.summary.cssVariables}`);
+      console.log(`- SCSS Variables: ${tokenDiscovery.summary.scssVariables}`);
+      console.log(`- Font Sizes: ${tokenDiscovery.summary.fontSizes}`);
+      console.log(`- Spacing Values: ${tokenDiscovery.summary.spacingValues}`);
+      console.log(`- Radius Values: ${tokenDiscovery.summary.radiusValues}`);
+      console.log(`- Shadow Values: ${tokenDiscovery.summary.shadowValues}`);
+      console.log(`- Breakpoints: ${tokenDiscovery.summary.breakpoints}`);
 
-          const printTopValues = (
-            title: string,
-            items: Array<{ value: string; count: number; files: string[] }>
-          ) => {
-            console.log("");
-            console.log(title);
+      const printTopValues = (
+        title: string,
+        items: Array<{ value: string; count: number; files: string[] }>
+      ) => {
+        console.log("");
+        console.log(title);
 
-            if (items.length === 0) {
-              console.log("- None detected");
-              return;
-            }
-
-            items.slice(0, 10).forEach((item) => {
-              console.log(`- ${item.value} (${item.count})`);
-              console.log(`  ${item.files.slice(0, 2).join(", ")}`);
-            });
-          };
-
-          const printTopNamedValues = (
-            title: string,
-            items: Array<{ name: string; value: string; count: number; files: string[] }>
-          ) => {
-            console.log("");
-            console.log(title);
-
-            if (items.length === 0) {
-              console.log("- None detected");
-              return;
-            }
-
-            items.slice(0, 10).forEach((item) => {
-              console.log(`- ${item.name}: ${item.value} (${item.count})`);
-              console.log(`  ${item.files.slice(0, 2).join(", ")}`);
-            });
-          };
-
-          printTopValues("Top Colors:", tokenDiscovery.colors);
-          printTopNamedValues("Top CSS Variables:", tokenDiscovery.cssVariables);
-          printTopNamedValues("Top SCSS Variables:", tokenDiscovery.scssVariables);
-          printTopValues("Top Font Sizes:", tokenDiscovery.fontSizes);
-          printTopValues("Top Spacing Values:", tokenDiscovery.spacingValues);
-          printTopValues("Top Radius Values:", tokenDiscovery.radiusValues);
-          printTopValues("Top Shadows:", tokenDiscovery.shadowValues);
-          printTopValues("Top Breakpoints:", tokenDiscovery.breakpoints);
+        if (items.length === 0) {
+          console.log("- None detected");
+          return;
         }
 
+        items.slice(0, 10).forEach((item) => {
+          console.log(`- ${item.value} (${item.count})`);
+          console.log(`  ${item.files.slice(0, 2).join(", ")}`);
+        });
+      };
+
+      const printTopNamedValues = (
+        title: string,
+        items: Array<{ name: string; value: string; count: number; files: string[] }>
+      ) => {
+        console.log("");
+        console.log(title);
+
+        if (items.length === 0) {
+          console.log("- None detected");
+          return;
+        }
+
+        items.slice(0, 10).forEach((item) => {
+          console.log(`- ${item.name}: ${item.value} (${item.count})`);
+          console.log(`  ${item.files.slice(0, 2).join(", ")}`);
+        });
+      };
+
+      printTopValues("Top Colors:", tokenDiscovery.colors);
+      printTopNamedValues("Top CSS Variables:", tokenDiscovery.cssVariables);
+      printTopNamedValues("Top SCSS Variables:", tokenDiscovery.scssVariables);
+      printTopValues("Top Font Sizes:", tokenDiscovery.fontSizes);
+      printTopValues("Top Spacing Values:", tokenDiscovery.spacingValues);
+      printTopValues("Top Radius Values:", tokenDiscovery.radiusValues);
+      printTopValues("Top Shadows:", tokenDiscovery.shadowValues);
+      printTopValues("Top Breakpoints:", tokenDiscovery.breakpoints);
+    }
+
+    if (componentDiscovery) {
+      console.log("");
+      console.log("Component Pattern Discovery:");
+      console.log(`- Files Scanned for Components: ${componentDiscovery.summary.scannedFiles}`);
+      console.log(`- Large Files Skipped: ${componentDiscovery.summary.skippedLargeFiles}`);
+      console.log(`- Component Candidates: ${componentDiscovery.summary.componentCandidates}`);
+      console.log(`- Patterns Detected: ${componentDiscovery.summary.patternsDetected}`);
+      console.log(`- Buttons: ${componentDiscovery.summary.buttons}`);
+      console.log(`- Forms: ${componentDiscovery.summary.forms}`);
+      console.log(`- Tables: ${componentDiscovery.summary.tables}`);
+      console.log(`- Cards: ${componentDiscovery.summary.cards}`);
+      console.log(`- Modals: ${componentDiscovery.summary.modals}`);
+      console.log(`- Tabs: ${componentDiscovery.summary.tabs}`);
+      console.log(`- Uploads: ${componentDiscovery.summary.uploads}`);
+      console.log(`- Status Badges: ${componentDiscovery.summary.statusBadges}`);
+      console.log(`- KPI Cards: ${componentDiscovery.summary.kpiCards}`);
+      console.log(`- Charts: ${componentDiscovery.summary.charts}`);
+      console.log(`- Sidebars: ${componentDiscovery.summary.sidebars}`);
+      console.log(`- Navbars: ${componentDiscovery.summary.navbars}`);
+
+      console.log("");
+      console.log("Top Component Patterns:");
+
+      if (componentDiscovery.patterns.length === 0) {
+        console.log("- None detected");
+      }
+
+      componentDiscovery.patterns.slice(0, 12).forEach((item) => {
+        console.log(`- ${item.pattern}: ${item.count}`);
+        console.log(`  ${item.files.slice(0, 3).join(", ")}`);
+      });
+
+      console.log("");
+      console.log("Top Component Candidates:");
+
+      if (componentDiscovery.candidates.length === 0) {
+        console.log("- None detected");
+      }
+
+      componentDiscovery.candidates.slice(0, 15).forEach((candidate) => {
+        console.log(`- ${candidate.name}`);
+        console.log(`  File: ${candidate.relativePath}`);
+        console.log(`  Signals: ${candidate.signals.length > 0 ? candidate.signals.join(", ") : "component candidate"}`);
+      });
+    }
 
     console.log("Next:");
-    console.log("- Release 0.2 Module 3 will detect component patterns.");
     console.log("- Release 0.2 Module 4 will convert discovered tokens into constitution suggestions.");
+    console.log("- Release 0.2 Module 5 will convert detected component patterns into component registry suggestions.");
   });
 
 program

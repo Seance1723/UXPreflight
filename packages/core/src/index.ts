@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Release 0.2 Module 2 design token discovery ready"
+    status: "Release 0.2 Module 3 component pattern discovery ready"
   };
 }
 

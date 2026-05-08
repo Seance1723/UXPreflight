@@ -17,6 +17,9 @@ import {
   summarizeDesignConstitution,
   summarizeTokenExports,
   validateDesignConstitution,
+  validateProjectConfig,
+  validateRulePack,
+  validateTokens,
   type UXPreflightDesignConstitution,
   type UXPreflightFrontendStack,
   type UXPreflightPlatform,
@@ -170,6 +173,215 @@ function normalizePromptDetailLevel(value?: string): UXPreflightPromptDetailLeve
   }
 
   return "compact";
+}
+
+type ProjectHealthStatus = "ok" | "missing" | "invalid";
+
+interface ProjectHealthCheck {
+  label: string;
+  relativePath: string;
+  status: ProjectHealthStatus;
+  message: string;
+}
+
+type UXPreflightValidationIssue = {
+  path: PropertyKey[];
+  message: string;
+};
+
+type UXPreflightValidationResult = {
+  success: boolean;
+  error?: {
+    issues: UXPreflightValidationIssue[];
+  };
+};
+
+function formatIssuePath(pathValue: PropertyKey[]) {
+  return pathValue.map((item) => String(item)).join(".");
+}
+
+async function checkTextFile(
+  cwd: string,
+  relativePath: string,
+  label: string,
+  requiredIncludes: string[]
+): Promise<ProjectHealthCheck> {
+  const filePath = path.join(cwd, relativePath);
+  const exists = await pathExists(filePath);
+
+  if (!exists) {
+    return {
+      label,
+      relativePath,
+      status: "missing",
+      message: "File is missing."
+    };
+  }
+
+  const content = await readFile(filePath, "utf8");
+  const missingIncludes = requiredIncludes.filter((item) => !content.includes(item));
+
+  if (missingIncludes.length > 0) {
+    return {
+      label,
+      relativePath,
+      status: "invalid",
+      message: `Missing expected content: ${missingIncludes.join(", ")}`
+    };
+  }
+
+  return {
+    label,
+    relativePath,
+    status: "ok",
+    message: "Valid."
+  };
+}
+
+async function checkJsonFile(
+  cwd: string,
+  relativePath: string,
+  label: string,
+  validator: (value: unknown) => UXPreflightValidationResult
+): Promise<ProjectHealthCheck> {
+  const filePath = path.join(cwd, relativePath);
+  const exists = await pathExists(filePath);
+
+  if (!exists) {
+    return {
+      label,
+      relativePath,
+      status: "missing",
+      message: "File is missing."
+    };
+  }
+
+  try {
+    const content = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(content) as unknown;
+    const result = validator(parsed);
+
+    if (!result.success) {
+      const firstIssue = result.error?.issues[0];
+
+      return {
+        label,
+        relativePath,
+        status: "invalid",
+        message: firstIssue
+          ? `${formatIssuePath(firstIssue.path)}: ${firstIssue.message}`
+          : "JSON validation failed."
+      };
+    }
+
+    return {
+      label,
+      relativePath,
+      status: "ok",
+      message: "Valid."
+    };
+  } catch (error) {
+    return {
+      label,
+      relativePath,
+      status: "invalid",
+      message: error instanceof Error ? error.message : "Failed to read or parse JSON."
+    };
+  }
+}
+
+async function checkProjectHealth(cwd: string) {
+  const checks: ProjectHealthCheck[] = [];
+
+  checks.push(
+    await checkJsonFile(
+      cwd,
+      ".uxpreflight/uxpreflight.config.json",
+      "Project Config",
+      validateProjectConfig
+    )
+  );
+
+  checks.push(
+    await checkJsonFile(
+      cwd,
+      ".uxpreflight/design-constitution.json",
+      "Design Constitution",
+      validateDesignConstitution
+    )
+  );
+
+  checks.push(
+    await checkJsonFile(
+      cwd,
+      ".uxpreflight/tokens.json",
+      "Design Tokens JSON",
+      validateTokens
+    )
+  );
+
+  checks.push(
+    await checkTextFile(
+      cwd,
+      ".uxpreflight/tokens.css",
+      "Design Tokens CSS",
+      ["--ux-color-primary", "--ux-space-base"]
+    )
+  );
+
+  checks.push(
+    await checkTextFile(
+      cwd,
+      ".uxpreflight/_tokens.scss",
+      "Design Tokens SCSS",
+      ["$ux-color-primary", "$ux-space-base"]
+    )
+  );
+
+  const ruleFiles = [
+    [".uxpreflight/universal.rules.json", "Universal Rules"],
+    [".uxpreflight/accessibility.rules.json", "Accessibility Rules"],
+    [".uxpreflight/states.rules.json", "State Rules"],
+    [".uxpreflight/components.rules.json", "Component Rules"],
+    [".uxpreflight/product.rules.json", "Product Rules"],
+    [".uxpreflight/screen.rules.json", "Screen Rules"]
+  ] as const;
+
+  for (const [relativePath, label] of ruleFiles) {
+    checks.push(await checkJsonFile(cwd, relativePath, label, validateRulePack));
+  }
+
+  checks.push(
+    await checkTextFile(
+      cwd,
+      "AGENTS.md",
+      "AGENTS.md",
+      ["UXPreflight Agent Rules", ".uxpreflight/design-constitution.json"]
+    )
+  );
+
+  checks.push(
+    await checkTextFile(
+      cwd,
+      ".cursor/rules/uxpreflight.mdc",
+      "Cursor Rules",
+      ["alwaysApply: true", "UXPreflight Cursor Rules"]
+    )
+  );
+
+  const summary = {
+    total: checks.length,
+    ok: checks.filter((check) => check.status === "ok").length,
+    missing: checks.filter((check) => check.status === "missing").length,
+    invalid: checks.filter((check) => check.status === "invalid").length
+  };
+
+  return {
+    checks,
+    summary,
+    isInitialized: summary.ok > 0,
+    isHealthy: summary.missing === 0 && summary.invalid === 0
+  };
 }
 
 async function askQuestion(
@@ -710,7 +922,7 @@ program
 program
   .command("doctor")
   .description("Check UXPreflight project setup health.")
-  .action(() => {
+  .action(async () => {
     const core = getCoreInfo();
     const schema = getSchemaInfo();
     const rulePacks = getDefaultRulePacks();
@@ -765,6 +977,8 @@ program
     });
 
     const cursorRulesSummary = summarizeCursorRules(cursorRules, rulePacks);
+
+    const projectHealth = await checkProjectHealth(process.cwd());
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -867,6 +1081,35 @@ program
     console.log(`Includes Do-Not Rules: ${cursorRulesSummary.includesDoNotRules ? "Yes" : "No"}`);
     console.log(`Includes State Rules: ${cursorRulesSummary.includesStateRules ? "Yes" : "No"}`);
 
+        console.log("");
+    console.log("Current Project Health:");
+    console.log(`Total Checks: ${projectHealth.summary.total}`);
+    console.log(`OK: ${projectHealth.summary.ok}`);
+    console.log(`Missing: ${projectHealth.summary.missing}`);
+    console.log(`Invalid: ${projectHealth.summary.invalid}`);
+
+    console.log("");
+
+    projectHealth.checks.forEach((check) => {
+      const icon =
+        check.status === "ok" ? "OK" : check.status === "missing" ? "MISSING" : "INVALID";
+
+      console.log(`${icon}: ${check.relativePath}`);
+      console.log(`  ${check.message}`);
+    });
+
+    if (!projectHealth.isInitialized) {
+      console.log("");
+      console.log("This project does not look initialized yet.");
+      console.log("Run:");
+      console.log("npm run ux -- init");
+    } else if (!projectHealth.isHealthy) {
+      console.log("");
+      console.log("Project health issues found.");
+      console.log("To regenerate missing files, run:");
+      console.log("npm run ux -- export --target all --force");
+    }
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
 
     const hasInvalidTokenExport =
@@ -897,20 +1140,26 @@ program
 
     console.log("");
 
-    if (
-      hasInvalidPack ||
-      !constitutionValidation.success ||
-      hasInvalidTokenExport ||
-      hasInvalidPrompt ||
-      hasInvalidAgentsMd ||
-      hasInvalidCursorRules
-    ) {
-      console.log("Module 16 setup has validation errors.");
-      process.exitCode = 1;
-      return;
-    }
+        if (
+          hasInvalidPack ||
+          !constitutionValidation.success ||
+          hasInvalidTokenExport ||
+          hasInvalidPrompt ||
+          hasInvalidAgentsMd ||
+          hasInvalidCursorRules
+        ) {
+          console.log("Module 17 setup has validation errors.");
+          process.exitCode = 1;
+          return;
+        }
 
-    console.log("Module 16 setup looks good.");
+        if (projectHealth.isInitialized && !projectHealth.isHealthy) {
+          console.log("");
+          console.log("Module 17 setup is working, but current project health has issues.");
+          return;
+        }
+
+        console.log("Module 17 setup looks good.");
   });
 
 program.parse();

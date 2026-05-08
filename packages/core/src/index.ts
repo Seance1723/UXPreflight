@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Module 16 CLI export integration ready"
+    status: "Module 17 project health doctor ready"
   };
 }
 

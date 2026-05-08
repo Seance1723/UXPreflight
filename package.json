@@ -13,10 +13,9 @@
     "build:rule-packs": "npm run build -w @uxpreflight/rule-packs",
     "build:adapters": "npm run build -w @uxpreflight/adapters",
     "build:cli": "npm run build -w @uxpreflight/cli",
-    "ux": "npm run build:core && npm run build:rule-packs && npm run build:adapters && tsx packages/cli/src/index.ts",
     "build": "npm run build:core && npm run build:rule-packs && npm run build:adapters && npm run build -w @uxpreflight/checker && npm run build -w @uxpreflight/mcp-server && npm run build:cli",
-    "dev": "npm run build:core && npm run build:rule-packs && npm run build:adapters && npm run dev -w @uxpreflight/cli",
-    "doctor": "npm run build:core && npm run build:rule-packs && npm run build:adapters && npm run doctor -w @uxpreflight/cli",
+    "ux": "npm run build:core && npm run build:rule-packs && npm run build:adapters && tsx packages/cli/src/index.ts",
+    "doctor": "npm run ux -- doctor",
     "typecheck": "tsc -b packages/core packages/rule-packs packages/adapters packages/cli packages/checker packages/mcp-server"
     },
   "keywords": [

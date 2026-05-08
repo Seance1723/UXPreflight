@@ -1412,6 +1412,80 @@ program
   });
 
 program
+  .command("validate")
+  .description("Validate the current project's UXPreflight files.")
+  .option("--json", "Print validation result as JSON.")
+  .action(async (options) => {
+    const cwd = process.cwd();
+    const projectHealth = await checkProjectHealth(cwd);
+
+    const result = {
+      valid: projectHealth.isHealthy,
+      initialized: projectHealth.isInitialized,
+      summary: projectHealth.summary,
+      checks: projectHealth.checks
+    };
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+
+      if (!result.valid) {
+        process.exitCode = 1;
+      }
+
+      return;
+    }
+
+    console.log("");
+    console.log("UXPreflight Validate");
+    console.log("--------------------");
+
+    if (!projectHealth.isInitialized) {
+      console.log("Status: NOT INITIALIZED");
+      console.log("");
+      console.log("Missing UXPreflight project files.");
+      console.log("");
+      console.log("Run:");
+      console.log("npm run ux -- init");
+      console.log("");
+
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log(`Status: ${projectHealth.isHealthy ? "VALID" : "INVALID"}`);
+    console.log(`Total Checks: ${projectHealth.summary.total}`);
+    console.log(`OK: ${projectHealth.summary.ok}`);
+    console.log(`Missing: ${projectHealth.summary.missing}`);
+    console.log(`Invalid: ${projectHealth.summary.invalid}`);
+
+    console.log("");
+
+    projectHealth.checks.forEach((check) => {
+      const label =
+        check.status === "ok" ? "OK" : check.status === "missing" ? "MISSING" : "INVALID";
+
+      console.log(`${label}: ${check.relativePath}`);
+      console.log(`  ${check.message}`);
+    });
+
+    console.log("");
+
+    if (!projectHealth.isHealthy) {
+      console.log("Validation failed.");
+      console.log("");
+      console.log("To regenerate missing or outdated files, run:");
+      console.log("npm run ux -- export --target all --force");
+      console.log("");
+
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log("Validation passed.");
+  });
+
+program
   .command("doctor")
   .description("Check UXPreflight project setup health.")
   .action(async () => {
@@ -1640,18 +1714,18 @@ program
           hasInvalidAgentsMd ||
           hasInvalidCursorRules
         ) {
-          console.log("Module 19 setup has validation errors.");
+          console.log("Module 20 setup has validation errors.");
           process.exitCode = 1;
           return;
         }
 
         if (projectHealth.isInitialized && !projectHealth.isHealthy) {
           console.log("");
-          console.log("Module 19 setup is working, but current project health has issues.");
+          console.log("Module 20 setup is working, but current project health has issues.");
           return;
         }
 
-        console.log("Module 19 setup looks good.");
+        console.log("Module 20 setup looks good.");
   });
 
 program.parse();

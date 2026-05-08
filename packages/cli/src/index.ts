@@ -510,6 +510,204 @@ program
   });
   
 program
+  .command("export")
+  .description("Export UXPreflight files such as AGENTS.md, Cursor rules, tokens, and rule packs.")
+  .option(
+    "--target <target>",
+    "all, agents-md, cursor, tokens, rules, constitution.",
+    "all"
+  )
+  .option("--force", "Overwrite existing exported files.")
+  .action(async (options) => {
+    const cwd = process.cwd();
+    const force = Boolean(options.force);
+    const target = String(options.target).trim().toLowerCase();
+
+    const allowedTargets = [
+      "all",
+      "agents-md",
+      "cursor",
+      "tokens",
+      "rules",
+      "constitution"
+    ];
+
+    if (!allowedTargets.includes(target)) {
+      console.log("");
+      console.log("UXPreflight export failed.");
+      console.log("--------------------------");
+      console.log(`Invalid target: ${target}`);
+      console.log("");
+      console.log("Allowed targets:");
+      allowedTargets.forEach((item) => console.log(`- ${item}`));
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const constitutionPath = path.join(cwd, ".uxpreflight", "design-constitution.json");
+    const constitutionExists = await pathExists(constitutionPath);
+
+    if (!constitutionExists) {
+      console.log("");
+      console.log("UXPreflight export failed.");
+      console.log("--------------------------");
+      console.log("Missing .uxpreflight/design-constitution.json");
+      console.log("");
+      console.log("Run this first:");
+      console.log("npm run ux -- init");
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const constitution = await readJsonFile<UXPreflightDesignConstitution>(constitutionPath);
+    const constitutionValidation = validateDesignConstitution(constitution);
+
+    if (!constitutionValidation.success) {
+      console.log("");
+      console.log("UXPreflight export failed.");
+      console.log("--------------------------");
+      console.log("Invalid .uxpreflight/design-constitution.json");
+      console.log("");
+
+      constitutionValidation.error.issues.forEach((issue) => {
+        console.log(`- ${issue.path.join(".")}: ${issue.message}`);
+      });
+
+      console.log("");
+      process.exitCode = 1;
+      return;
+    }
+
+    const rulePacks = getDefaultRulePacks();
+    const tokenBundle = createTokenExportBundle(constitution.tokens);
+
+    const agentsMd = generateAgentsMd({
+      constitution,
+      rulePacks
+    });
+
+    const cursorRules = generateCursorRules({
+      constitution,
+      rulePacks
+    });
+
+    const files: Array<{ filePath: string; content: string; group: string }> = [];
+
+    if (target === "all" || target === "constitution") {
+      files.push({
+        group: "constitution",
+        filePath: path.join(cwd, ".uxpreflight", "design-constitution.json"),
+        content: JSON.stringify(constitution, null, 2)
+      });
+    }
+
+    if (target === "all" || target === "tokens") {
+      files.push(
+        {
+          group: "tokens",
+          filePath: path.join(cwd, ".uxpreflight", "tokens.json"),
+          content: tokenBundle.json
+        },
+        {
+          group: "tokens",
+          filePath: path.join(cwd, ".uxpreflight", "tokens.css"),
+          content: tokenBundle.css
+        },
+        {
+          group: "tokens",
+          filePath: path.join(cwd, ".uxpreflight", "_tokens.scss"),
+          content: tokenBundle.scss
+        }
+      );
+    }
+
+    if (target === "all" || target === "rules") {
+      files.push(
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "universal.rules.json"),
+          content: JSON.stringify(universalUXRules, null, 2)
+        },
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "accessibility.rules.json"),
+          content: JSON.stringify(accessibilityRules, null, 2)
+        },
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "states.rules.json"),
+          content: JSON.stringify(stateCoverageRules, null, 2)
+        },
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "components.rules.json"),
+          content: JSON.stringify(componentRules, null, 2)
+        },
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "product.rules.json"),
+          content: JSON.stringify(productTypeRules, null, 2)
+        },
+        {
+          group: "rules",
+          filePath: path.join(cwd, ".uxpreflight", "screen.rules.json"),
+          content: JSON.stringify(screenTypeRules, null, 2)
+        }
+      );
+    }
+
+    if (target === "all" || target === "agents-md") {
+      files.push({
+        group: "agents-md",
+        filePath: path.join(cwd, "AGENTS.md"),
+        content: agentsMd
+      });
+    }
+
+    if (target === "all" || target === "cursor") {
+      files.push({
+        group: "cursor",
+        filePath: path.join(cwd, ".cursor", "rules", "uxpreflight.mdc"),
+        content: cursorRules
+      });
+    }
+
+    const results = [];
+
+    for (const file of files) {
+      const result = await writeFileSafe(file.filePath, file.content, force);
+      results.push({
+        ...result,
+        group: file.group
+      });
+    }
+
+    console.log("");
+    console.log("UXPreflight export complete.");
+    console.log("----------------------------");
+    console.log(`Target: ${target}`);
+    console.log(`Files: ${results.length}`);
+    console.log("");
+
+    results.forEach((result) => {
+      const relativePath = path.relative(cwd, result.filePath);
+      console.log(`${result.status.toUpperCase()}: ${relativePath}`);
+    });
+
+    console.log("");
+
+    if (!force && results.some((result) => result.status === "skipped")) {
+      console.log("Some files were skipped because they already exist.");
+      console.log("Run with --force to overwrite them.");
+      console.log("");
+    }
+
+    console.log("Export finished.");
+  });
+
+program
   .command("doctor")
   .description("Check UXPreflight project setup health.")
   .action(() => {
@@ -707,12 +905,12 @@ program
       hasInvalidAgentsMd ||
       hasInvalidCursorRules
     ) {
-      console.log("Module 14 setup has validation errors.");
+      console.log("Module 16 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 14 setup looks good.");
+    console.log("Module 16 setup looks good.");
   });
 
 program.parse();

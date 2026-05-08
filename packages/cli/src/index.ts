@@ -3,9 +3,11 @@
 import { Command } from "commander";
 import {
   createTokenExportBundle,
+  generateAgentPrompt,
   generateDesignConstitution,
   getCoreInfo,
   getSchemaInfo,
+  summarizeAgentPrompt,
   summarizeDesignConstitution,
   summarizeTokenExports,
   validateDesignConstitution,
@@ -30,6 +32,7 @@ program
   .action(() => {
     const core = getCoreInfo();
     const schema = getSchemaInfo();
+    const rulePacks = getDefaultRulePacks();
     const rulePackResults = validateDefaultRulePacks();
 
     const sampleConfig: UXPreflightProjectConfig = {
@@ -44,7 +47,7 @@ program
 
     const sampleConstitution = generateDesignConstitution({
       config: sampleConfig,
-      rulePacks: getDefaultRulePacks()
+      rulePacks
     });
 
     const constitutionValidation = validateDesignConstitution(sampleConstitution);
@@ -52,6 +55,30 @@ program
 
     const tokenBundle = createTokenExportBundle(sampleConstitution.tokens);
     const tokenSummary = summarizeTokenExports(tokenBundle);
+
+    const samplePrompt = generateAgentPrompt({
+      constitution: sampleConstitution,
+      rulePacks,
+      screenName: "Billing Settings",
+      screenType: "billing_page",
+      userRequirement:
+        "Create a SaaS super admin billing settings page with API usage, plan rules, invoices, currency, tax, failed sync state, and audit log.",
+      targetAgent: "codex",
+      outputFormat: "React + SCSS implementation",
+      detailLevel: "compact"
+    });
+
+    const promptSummary = summarizeAgentPrompt(samplePrompt, {
+      constitution: sampleConstitution,
+      rulePacks,
+      screenName: "Billing Settings",
+      screenType: "billing_page",
+      userRequirement:
+        "Create a SaaS super admin billing settings page with API usage, plan rules, invoices, currency, tax, failed sync state, and audit log.",
+      targetAgent: "codex",
+      outputFormat: "React + SCSS implementation",
+      detailLevel: "compact"
+    });
 
     console.log("");
     console.log("UXPreflight Doctor");
@@ -114,21 +141,41 @@ program
     console.log(`CSS Variables: ${tokenSummary.cssVariableCount}`);
     console.log(`SCSS Variables: ${tokenSummary.scssVariableCount}`);
 
+    console.log("");
+    console.log("Prompt Compiler:");
+    console.log(`Characters: ${promptSummary.characters}`);
+    console.log(`Lines: ${promptSummary.lines}`);
+    console.log(`Rule References: ${promptSummary.ruleReferenceCount}`);
+    console.log(`Required States: ${promptSummary.requiredStateCount}`);
+    console.log(`Includes Token Guidance: ${promptSummary.includesTokenGuidance ? "Yes" : "No"}`);
+    console.log(`Includes Do-Not Rules: ${promptSummary.includesDoNotRules ? "Yes" : "No"}`);
+
     const hasInvalidPack = rulePackResults.some((pack) => !pack.valid);
     const hasInvalidTokenExport =
       tokenSummary.jsonCharacters === 0 ||
       tokenSummary.cssVariableCount === 0 ||
       tokenSummary.scssVariableCount === 0;
 
+    const hasInvalidPrompt =
+      promptSummary.characters === 0 ||
+      !promptSummary.includesTokenGuidance ||
+      !promptSummary.includesDoNotRules ||
+      promptSummary.ruleReferenceCount === 0;
+
     console.log("");
 
-    if (hasInvalidPack || !constitutionValidation.success || hasInvalidTokenExport) {
-      console.log("Module 10 setup has validation errors.");
+    if (
+      hasInvalidPack ||
+      !constitutionValidation.success ||
+      hasInvalidTokenExport ||
+      hasInvalidPrompt
+    ) {
+      console.log("Module 11 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 10 setup looks good.");
+    console.log("Module 11 setup looks good.");
   });
 
 program.parse();

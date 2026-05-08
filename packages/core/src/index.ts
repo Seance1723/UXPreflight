@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Module 10 design token export ready"
+    status: "Module 11 prompt compiler ready"
   };
 }
 
@@ -14,3 +14,4 @@ export * from "./validate.js";
 export * from "./defaults.js";
 export * from "./generateDesignConstitution.js";
 export * from "./exportDesignTokens.js";
+export * from "./generateAgentPrompt.js";

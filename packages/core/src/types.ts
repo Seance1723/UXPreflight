@@ -124,3 +124,34 @@ export interface GenerateDesignConstitutionInput {
   tokens?: UXPreflightTokens;
   version?: string;
 }
+
+export type UXPreflightTargetAgent =
+  | "codex"
+  | "cursor"
+  | "claude"
+  | "gemini"
+  | "windsurf"
+  | "chatgpt"
+  | "generic";
+
+export type UXPreflightPromptDetailLevel = "compact" | "detailed";
+
+export interface GenerateAgentPromptInput {
+  constitution: UXPreflightDesignConstitution;
+  rulePacks: UXPreflightRulePack[];
+  screenName: string;
+  screenType?: string;
+  userRequirement: string;
+  targetAgent?: UXPreflightTargetAgent;
+  outputFormat?: string;
+  detailLevel?: UXPreflightPromptDetailLevel;
+}
+
+export interface AgentPromptSummary {
+  characters: number;
+  lines: number;
+  ruleReferenceCount: number;
+  requiredStateCount: number;
+  includesTokenGuidance: boolean;
+  includesDoNotRules: boolean;
+}

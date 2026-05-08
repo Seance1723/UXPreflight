@@ -2,7 +2,7 @@ export const CLI_NAME = "uxpreflight";
 
 export const CLI_VERSION = "0.1.0";
 
-export const CURRENT_MODULE = "Module 21";
+export const CURRENT_MODULE = "Module 22";
 
 export const CLI_DESCRIPTION =
   "Open-source design governance engine for AI-generated frontend applications.";

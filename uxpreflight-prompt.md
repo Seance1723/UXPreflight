@@ -4,8 +4,8 @@ You are working inside a project that uses UXPreflight.
 
 Before generating or modifying any UI, frontend code, layout, component, style, or design system file, you must follow the project design constitution below.
 
-Target Agent: codex
-Output Expected: React + SCSS implementation
+Target Agent: generic
+Output Expected: Complete production-ready frontend solution
 
 
 ## Project Context

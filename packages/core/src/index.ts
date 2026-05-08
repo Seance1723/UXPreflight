@@ -4,7 +4,7 @@ export function getCoreInfo() {
   return {
     name: "@uxpreflight/core",
     version: UX_PREFLIGHT_VERSION,
-    status: "Module 20 CLI list command ready"
+    status: "Module 21 CLI list command ready"
   };
 }
 

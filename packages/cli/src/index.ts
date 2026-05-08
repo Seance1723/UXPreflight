@@ -51,12 +51,22 @@ import {
   summarizeCursorRules
 } from "@uxpreflight/adapters";
 
+import {
+  CLI_DESCRIPTION,
+  CLI_HELP_TEXT,
+  CLI_NAME,
+  CLI_VERSION,
+  COMMAND_HINTS,
+  CURRENT_MODULE
+} from "./cliMeta.js";
+
 const program = new Command();
 
 program
-  .name("uxpreflight")
-  .description("Open-source design governance engine for AI-generated frontend applications.")
-  .version("0.1.0");
+  .name(CLI_NAME)
+  .description(CLI_DESCRIPTION)
+  .version(CLI_VERSION)
+  .addHelpText("after", CLI_HELP_TEXT);
 
 async function pathExists(filePath: string) {
   try {
@@ -658,7 +668,7 @@ async function collectInitConfig(options: {
 
 program
   .command("init")
-  .description("Create UXPreflight design constitution and agent rule files.")
+  .description(COMMAND_HINTS.init)
   .option("-y, --yes", "Use default answers.")
   .option("--force", "Overwrite existing UXPreflight files.")
   .option("--project-name <name>", "Project name.")
@@ -794,7 +804,7 @@ program
 
 program
   .command("generate")
-  .description("Generate an AI-agent-ready prompt from the project design constitution.")
+  .description(COMMAND_HINTS.generate)
   .requiredOption("--screen <name>", "Screen name, for example Billing Settings.")
   .option("--screen-type <type>", "Screen type, for example billing_page or dashboard.")
   .option("--requirement <text>", "User requirement for the screen or task.")
@@ -909,7 +919,7 @@ program
   
 program
   .command("export")
-  .description("Export UXPreflight files such as AGENTS.md, Cursor rules, tokens, and rule packs.")
+  .description(COMMAND_HINTS.export)
   .option(
     "--target <target>",
     "all, agents-md, cursor, tokens, rules, constitution.",
@@ -1107,7 +1117,7 @@ program
 
 program
   .command("list")
-  .description("List UXPreflight rule packs, rules, states, or tokens.")
+  .description(COMMAND_HINTS.list)
   .argument("<type>", "packs, rules, states, or tokens")
   .option("--category <category>", "Filter rules by category.")
   .option("--severity <severity>", "Filter rules by severity.")
@@ -1296,7 +1306,7 @@ program
 
 program
   .command("show")
-  .description("Show one UXPreflight rule, rule pack, or the active design constitution.")
+  .description(COMMAND_HINTS.show)
   .argument("<type>", "rule, pack, or constitution")
   .argument("[id]", "Rule ID or pack ID/name. Not required for constitution.")
   .option("--json", "Print raw JSON output.")
@@ -1413,7 +1423,7 @@ program
 
 program
   .command("validate")
-  .description("Validate the current project's UXPreflight files.")
+  .description(COMMAND_HINTS.validate)
   .option("--json", "Print validation result as JSON.")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1486,8 +1496,26 @@ program
   });
 
 program
+  .command("version-info")
+  .description("Show UXPreflight CLI version and module information.")
+  .action(() => {
+    const core = getCoreInfo();
+
+    console.log("");
+    console.log("UXPreflight Version Info");
+    console.log("------------------------");
+    console.log(`CLI Name: ${CLI_NAME}`);
+    console.log(`CLI Version: ${CLI_VERSION}`);
+    console.log(`Current Module: ${CURRENT_MODULE}`);
+    console.log(`Core Package: ${core.name}`);
+    console.log(`Core Version: ${core.version}`);
+    console.log(`Core Status: ${core.status}`);
+    console.log("");
+  });
+
+program
   .command("doctor")
-  .description("Check UXPreflight project setup health.")
+  .description(COMMAND_HINTS.doctor)
   .action(async () => {
     const core = getCoreInfo();
     const schema = getSchemaInfo();
@@ -1714,18 +1742,18 @@ program
           hasInvalidAgentsMd ||
           hasInvalidCursorRules
         ) {
-          console.log("Module 20 setup has validation errors.");
+          console.log(`${CURRENT_MODULE} setup has validation errors.`);
           process.exitCode = 1;
           return;
         }
 
         if (projectHealth.isInitialized && !projectHealth.isHealthy) {
           console.log("");
-          console.log("Module 20 setup is working, but current project health has issues.");
+          console.log(`${CURRENT_MODULE} setup is working, but current project health has issues.`);
           return;
         }
 
-        console.log("Module 20 setup looks good.");
+        console.log(`${CURRENT_MODULE} setup looks good.`);
   });
 
 program.parse();

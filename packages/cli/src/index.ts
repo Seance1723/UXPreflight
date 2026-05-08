@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { mkdir, writeFile, access } from "node:fs/promises";
+import { constants } from "node:fs";
+import path from "node:path";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
+
 import {
   createTokenExportBundle,
   generateAgentPrompt,
@@ -11,13 +17,24 @@ import {
   summarizeDesignConstitution,
   summarizeTokenExports,
   validateDesignConstitution,
-  type UXPreflightProjectConfig
+  type UXPreflightFrontendStack,
+  type UXPreflightPlatform,
+  type UXPreflightProjectConfig,
+  type UXPreflightStrictness
 } from "@uxpreflight/core";
+
 import {
+  accessibilityRules,
+  componentRules,
   getDefaultRulePacks,
+  productTypeRules,
   rulePacksInfo,
+  screenTypeRules,
+  stateCoverageRules,
+  universalUXRules,
   validateDefaultRulePacks
 } from "@uxpreflight/rule-packs";
+
 import {
   adaptersInfo,
   generateAgentsMd,
@@ -32,6 +49,310 @@ program
   .name("uxpreflight")
   .description("Open-source design governance engine for AI-generated frontend applications.")
   .version("0.1.0");
+
+async function pathExists(filePath: string) {
+  try {
+    await access(filePath, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function writeFileSafe(filePath: string, content: string, force: boolean) {
+  const exists = await pathExists(filePath);
+
+  if (exists && !force) {
+    return {
+      filePath,
+      status: "skipped"
+    };
+  }
+
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, content, "utf8");
+
+  return {
+    filePath,
+    status: exists ? "overwritten" : "created"
+  };
+}
+
+function normalizeFrontendStack(value: string): UXPreflightFrontendStack {
+  const normalized = value.trim().toLowerCase();
+
+  const allowed: UXPreflightFrontendStack[] = [
+    "react",
+    "nextjs",
+    "vue",
+    "angular",
+    "html_scss_js",
+    "tailwind",
+    "bootstrap",
+    "custom"
+  ];
+
+  if (allowed.includes(normalized as UXPreflightFrontendStack)) {
+    return normalized as UXPreflightFrontendStack;
+  }
+
+  return "react";
+}
+
+function normalizePlatform(value: string): UXPreflightPlatform {
+  const normalized = value.trim().toLowerCase();
+
+  const allowed: UXPreflightPlatform[] = ["web", "mobile", "desktop", "responsive"];
+
+  if (allowed.includes(normalized as UXPreflightPlatform)) {
+    return normalized as UXPreflightPlatform;
+  }
+
+  return "responsive";
+}
+
+function normalizeStrictness(value: string): UXPreflightStrictness {
+  const normalized = value.trim().toLowerCase();
+
+  const allowed: UXPreflightStrictness[] = ["relaxed", "balanced", "strict", "enterprise"];
+
+  if (allowed.includes(normalized as UXPreflightStrictness)) {
+    return normalized as UXPreflightStrictness;
+  }
+
+  return "strict";
+}
+
+function parseAgents(value: string) {
+  const agents = value
+    .split(",")
+    .map((agent) => agent.trim().toLowerCase())
+    .filter(Boolean);
+
+  return agents.length > 0 ? agents : ["codex", "cursor"];
+}
+
+async function askQuestion(
+  rl: readline.Interface,
+  question: string,
+  defaultValue: string
+) {
+  const answer = await rl.question(`${question} (${defaultValue}): `);
+  return answer.trim() || defaultValue;
+}
+
+async function collectInitConfig(options: {
+  yes?: boolean;
+  projectName?: string;
+  productType?: string;
+  platform?: string;
+  frontendStack?: string;
+  designTone?: string;
+  strictness?: string;
+  agents?: string;
+}) {
+  if (options.yes) {
+    return {
+      projectName: options.projectName ?? "UXPreflight Project",
+      productType: options.productType ?? "saas_admin",
+      platform: normalizePlatform(options.platform ?? "responsive"),
+      frontendStack: normalizeFrontendStack(options.frontendStack ?? "react"),
+      designTone: options.designTone ?? "modern enterprise SaaS",
+      strictness: normalizeStrictness(options.strictness ?? "strict"),
+      agents: parseAgents(options.agents ?? "codex,cursor")
+    } satisfies UXPreflightProjectConfig;
+  }
+
+  const rl = readline.createInterface({ input, output });
+
+  try {
+    console.log("");
+    console.log("UXPreflight Init");
+    console.log("----------------");
+    console.log("Create a project-level design constitution for AI agents.");
+    console.log("");
+
+    const projectName = await askQuestion(rl, "Project name", options.projectName ?? "UXPreflight Project");
+    const productType = await askQuestion(
+      rl,
+      "Product type",
+      options.productType ?? "saas_admin"
+    );
+    const platform = await askQuestion(
+      rl,
+      "Platform: web, mobile, desktop, responsive",
+      options.platform ?? "responsive"
+    );
+    const frontendStack = await askQuestion(
+      rl,
+      "Frontend stack: react, nextjs, vue, angular, html_scss_js, tailwind, bootstrap, custom",
+      options.frontendStack ?? "react"
+    );
+    const designTone = await askQuestion(
+      rl,
+      "Design tone",
+      options.designTone ?? "modern enterprise SaaS"
+    );
+    const strictness = await askQuestion(
+      rl,
+      "Strictness: relaxed, balanced, strict, enterprise",
+      options.strictness ?? "strict"
+    );
+    const agents = await askQuestion(
+      rl,
+      "AI agents: comma separated",
+      options.agents ?? "codex,cursor"
+    );
+
+    return {
+      projectName,
+      productType,
+      platform: normalizePlatform(platform),
+      frontendStack: normalizeFrontendStack(frontendStack),
+      designTone,
+      strictness: normalizeStrictness(strictness),
+      agents: parseAgents(agents)
+    } satisfies UXPreflightProjectConfig;
+  } finally {
+    rl.close();
+  }
+}
+
+program
+  .command("init")
+  .description("Create UXPreflight design constitution and agent rule files.")
+  .option("-y, --yes", "Use default answers.")
+  .option("--force", "Overwrite existing UXPreflight files.")
+  .option("--project-name <name>", "Project name.")
+  .option("--product-type <type>", "Product type, for example saas_admin or ai_agent_app.")
+  .option("--platform <platform>", "web, mobile, desktop, responsive.")
+  .option("--frontend-stack <stack>", "react, nextjs, vue, angular, html_scss_js, tailwind, bootstrap, custom.")
+  .option("--design-tone <tone>", "Design tone.")
+  .option("--strictness <level>", "relaxed, balanced, strict, enterprise.")
+  .option("--agents <agents>", "Comma-separated agents, for example codex,cursor.")
+  .action(async (options) => {
+    const cwd = process.cwd();
+    const force = Boolean(options.force);
+
+    const config = await collectInitConfig({
+      yes: options.yes,
+      projectName: options.projectName,
+      productType: options.productType,
+      platform: options.platform,
+      frontendStack: options.frontendStack,
+      designTone: options.designTone,
+      strictness: options.strictness,
+      agents: options.agents
+    });
+
+    const rulePacks = getDefaultRulePacks();
+
+    const constitution = generateDesignConstitution({
+      config,
+      rulePacks
+    });
+
+    const tokenBundle = createTokenExportBundle(constitution.tokens);
+
+    const agentsMd = generateAgentsMd({
+      constitution,
+      rulePacks
+    });
+
+    const cursorRules = generateCursorRules({
+      constitution,
+      rulePacks
+    });
+
+    const files = [
+      {
+        filePath: path.join(cwd, ".uxpreflight", "uxpreflight.config.json"),
+        content: JSON.stringify(config, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "design-constitution.json"),
+        content: JSON.stringify(constitution, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "tokens.json"),
+        content: tokenBundle.json
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "tokens.css"),
+        content: tokenBundle.css
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "_tokens.scss"),
+        content: tokenBundle.scss
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "universal.rules.json"),
+        content: JSON.stringify(universalUXRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "accessibility.rules.json"),
+        content: JSON.stringify(accessibilityRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "states.rules.json"),
+        content: JSON.stringify(stateCoverageRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "components.rules.json"),
+        content: JSON.stringify(componentRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "product.rules.json"),
+        content: JSON.stringify(productTypeRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, ".uxpreflight", "screen.rules.json"),
+        content: JSON.stringify(screenTypeRules, null, 2)
+      },
+      {
+        filePath: path.join(cwd, "AGENTS.md"),
+        content: agentsMd
+      },
+      {
+        filePath: path.join(cwd, ".cursor", "rules", "uxpreflight.mdc"),
+        content: cursorRules
+      }
+    ];
+
+    const results = [];
+
+    for (const file of files) {
+      const result = await writeFileSafe(file.filePath, file.content, force);
+      results.push(result);
+    }
+
+    console.log("");
+    console.log("UXPreflight init complete.");
+    console.log("--------------------------");
+    console.log(`Project: ${config.projectName}`);
+    console.log(`Product Type: ${config.productType}`);
+    console.log(`Frontend Stack: ${config.frontendStack}`);
+    console.log(`Strictness: ${config.strictness}`);
+    console.log("");
+
+    results.forEach((result) => {
+      const relativePath = path.relative(cwd, result.filePath);
+      console.log(`${result.status.toUpperCase()}: ${relativePath}`);
+    });
+
+    console.log("");
+
+    if (!force && results.some((result) => result.status === "skipped")) {
+      console.log("Some files were skipped because they already exist.");
+      console.log("Run with --force to overwrite them.");
+      console.log("");
+    }
+
+    console.log("Next:");
+    console.log("- Open AGENTS.md to review AI-agent rules.");
+    console.log("- Open .uxpreflight/design-constitution.json to review project design rules.");
+    console.log("- Use .uxpreflight/tokens.css or .uxpreflight/_tokens.scss in your frontend.");
+  });
 
 program
   .command("doctor")
@@ -231,12 +552,12 @@ program
       hasInvalidAgentsMd ||
       hasInvalidCursorRules
     ) {
-      console.log("Module 13 setup has validation errors.");
+      console.log("Module 14 setup has validation errors.");
       process.exitCode = 1;
       return;
     }
 
-    console.log("Module 13 setup looks good.");
+    console.log("Module 14 setup looks good.");
   });
 
 program.parse();

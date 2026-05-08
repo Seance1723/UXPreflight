@@ -61,10 +61,13 @@ import {
 } from "./cliMeta.js";
 
 import {
+  createFullScanReport,
+  createScanSummaryMarkdown,
   discoverComponentPatternsFromFiles,
   discoverDesignTokensFromFiles,
   scanProject,
   scannerInfo,
+  summarizeFullScanReport,
   suggestComponentRegistryFromDiscovery,
   suggestDesignTokensFromDiscovery
 } from "@uxpreflight/scanner";
@@ -1529,6 +1532,7 @@ program
   .option("--components", "Discover component patterns from scanned files.")
   .option("--suggest-tokens", "Suggest design tokens from discovered project values.")
   .option("--suggest-components", "Suggest a component registry from detected component patterns.")
+  .option("--write-report", "Write scan report files to .uxpreflight/scan-report.json and .uxpreflight/scan-summary.md.")
   .option("--max-files <number>", "Maximum number of files to scan.", "5000")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1570,21 +1574,19 @@ program
       componentDiscovery && options.suggestComponents
         ? suggestComponentRegistryFromDiscovery(componentDiscovery)
         : null;
+    
+    const fullScanReport = createFullScanReport({
+      scanResult: result,
+      tokenDiscovery,
+      tokenSuggestions,
+      componentDiscovery,
+      componentRegistrySuggestions
+    });
+
+    const fullScanReportSummary = summarizeFullScanReport(fullScanReport);
 
     if (options.json) {
-      console.log(
-        JSON.stringify(
-          {
-            ...result,
-            tokenDiscovery,
-            tokenSuggestions,
-            componentDiscovery,
-            componentRegistrySuggestions
-          },
-          null,
-          2
-        )
-      );
+      console.log(JSON.stringify(fullScanReport, null, 2));
       return;
     }
 
@@ -1804,9 +1806,38 @@ program
       });
     }
 
+    if (options.writeReport) {
+      const reportJsonPath = path.join(cwd, ".uxpreflight", "scan-report.json");
+      const reportMarkdownPath = path.join(cwd, ".uxpreflight", "scan-summary.md");
+
+      const reportJson = JSON.stringify(fullScanReport, null, 2);
+      const reportMarkdown = createScanSummaryMarkdown(fullScanReport);
+
+      const reportJsonResult = await writeFileSafe(reportJsonPath, reportJson, true);
+      const reportMarkdownResult = await writeFileSafe(reportMarkdownPath, reportMarkdown, true);
+
+      console.log("");
+      console.log("Scan Report Written:");
+      console.log(`- ${path.relative(cwd, reportJsonResult.filePath)} (${reportJsonResult.status})`);
+      console.log(`- ${path.relative(cwd, reportMarkdownResult.filePath)} (${reportMarkdownResult.status})`);
+
+      console.log("");
+      console.log("Scan Report Summary:");
+      console.log(`- Generated At: ${fullScanReportSummary.generatedAt}`);
+      console.log(`- Total Files: ${fullScanReportSummary.totalFiles}`);
+      console.log(`- Source Files: ${fullScanReportSummary.sourceFiles}`);
+      console.log(`- Style Files: ${fullScanReportSummary.styleFiles}`);
+      console.log(`- Component Candidates: ${fullScanReportSummary.componentCandidates}`);
+      console.log(`- Token Colors Detected: ${fullScanReportSummary.tokenColorsDetected}`);
+      console.log(`- Token Suggestions Available: ${fullScanReportSummary.tokenSuggestionsAvailable ? "Yes" : "No"}`);
+      console.log(`- Component Patterns Detected: ${fullScanReportSummary.componentPatternsDetected}`);
+      console.log(`- Component Registry Suggestions Available: ${fullScanReportSummary.componentRegistrySuggestionsAvailable ? "Yes" : "No"}`);
+    }
+
     console.log("Next:");
-    console.log("- Release 0.2 Module 6 will support writing scan suggestions to .uxpreflight/scan-report.json.");
+    console.log("- Review .uxpreflight/scan-report.json and .uxpreflight/scan-summary.md if you used --write-report.");
     console.log("- Release 0.2 Module 7 will support generating a component-registry.json file.");
+    console.log("- Release 0.2 Module 8 will support creating token suggestions as a draft tokens file.");
   });
 
 program

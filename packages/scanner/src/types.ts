@@ -202,3 +202,26 @@ export interface UXPreflightComponentRegistrySuggestionResult {
   summary: UXPreflightComponentRegistrySuggestionSummary;
   items: UXPreflightComponentRegistryItem[];
 }
+
+export interface UXPreflightFullScanReport {
+  generatedAt: string;
+  rootDir: string;
+  summary: UXPreflightScanSummary;
+  files: UXPreflightScannedFile[];
+  tokenDiscovery: UXPreflightTokenDiscoveryResult | null;
+  tokenSuggestions: UXPreflightDesignTokenSuggestionResult | null;
+  componentDiscovery: UXPreflightComponentDiscoveryResult | null;
+  componentRegistrySuggestions: UXPreflightComponentRegistrySuggestionResult | null;
+}
+
+export interface UXPreflightScanReportSummary {
+  generatedAt: string;
+  totalFiles: number;
+  sourceFiles: number;
+  styleFiles: number;
+  componentCandidates: number;
+  tokenColorsDetected: number;
+  tokenSuggestionsAvailable: boolean;
+  componentPatternsDetected: number;
+  componentRegistrySuggestionsAvailable: boolean;
+}

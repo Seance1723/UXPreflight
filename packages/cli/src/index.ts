@@ -64,7 +64,8 @@ import {
   discoverComponentPatternsFromFiles,
   discoverDesignTokensFromFiles,
   scanProject,
-  scannerInfo
+  scannerInfo,
+  suggestDesignTokensFromDiscovery
 } from "@uxpreflight/scanner";
 
 const program = new Command();
@@ -1525,6 +1526,7 @@ program
   .option("--json", "Print scan result as JSON.")
   .option("--tokens", "Discover design tokens from scanned files.")
   .option("--components", "Discover component patterns from scanned files.")
+  .option("--suggest-tokens", "Suggest design tokens from discovered project values.")
   .option("--max-files <number>", "Maximum number of files to scan.", "5000")
   .action(async (options) => {
     const cwd = process.cwd();
@@ -1545,9 +1547,16 @@ program
       maxFiles
     });
 
-    const tokenDiscovery = options.tokens
+    const shouldDiscoverTokens = Boolean(options.tokens || options.suggestTokens);
+
+    const tokenDiscovery = shouldDiscoverTokens
       ? await discoverDesignTokensFromFiles(result.files)
       : null;
+
+    const tokenSuggestions =
+      tokenDiscovery && options.suggestTokens
+        ? suggestDesignTokensFromDiscovery(tokenDiscovery)
+        : null;
 
     const componentDiscovery = options.components
       ? await discoverComponentPatternsFromFiles(result.files)
@@ -1559,6 +1568,7 @@ program
           {
             ...result,
             tokenDiscovery,
+            tokenSuggestions,
             componentDiscovery
           },
           null,
@@ -1669,6 +1679,37 @@ program
       printTopValues("Top Breakpoints:", tokenDiscovery.breakpoints);
     }
 
+    if (tokenSuggestions) {
+      console.log("");
+      console.log("Design Token Suggestions:");
+      console.log(`- Overall Confidence: ${tokenSuggestions.summary.overallConfidence}`);
+      console.log(`- Colors Suggested: ${tokenSuggestions.summary.colorsSuggested}`);
+      console.log(`- Font Sizes Suggested: ${tokenSuggestions.summary.fontSizesSuggested}`);
+      console.log(`- Spacing Values Suggested: ${tokenSuggestions.summary.spacingValuesSuggested}`);
+      console.log(`- Radius Values Suggested: ${tokenSuggestions.summary.radiusValuesSuggested}`);
+      console.log(`- Shadow Values Suggested: ${tokenSuggestions.summary.shadowValuesSuggested}`);
+      console.log(`- Breakpoints Suggested: ${tokenSuggestions.summary.breakpointsSuggested}`);
+
+      console.log("");
+      console.log("Suggested Colors:");
+      Object.entries(tokenSuggestions.colors).forEach(([name, suggestion]) => {
+        console.log(`- ${name}: ${suggestion.value ?? "Not detected"} (${suggestion.confidence})`);
+        console.log(`  ${suggestion.reason}`);
+
+        if (suggestion.sourceValues.length > 0) {
+          console.log(`  Source: ${suggestion.sourceValues.join(", ")}`);
+        }
+      });
+
+      console.log("");
+      console.log("Suggested Scales:");
+
+      Object.entries(tokenSuggestions.scales).forEach(([name, suggestion]) => {
+        console.log(`- ${name}: ${suggestion.value.length > 0 ? suggestion.value.join(", ") : "Not detected"} (${suggestion.confidence})`);
+        console.log(`  ${suggestion.reason}`);
+      });
+    }
+
     if (componentDiscovery) {
       console.log("");
       console.log("Component Pattern Discovery:");
@@ -1716,8 +1757,8 @@ program
     }
 
     console.log("Next:");
-    console.log("- Release 0.2 Module 4 will convert discovered tokens into constitution suggestions.");
     console.log("- Release 0.2 Module 5 will convert detected component patterns into component registry suggestions.");
+    console.log("- Release 0.2 Module 6 will support writing scan suggestions to .uxpreflight/scan-report.json.");
   });
 
 program
